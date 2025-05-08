@@ -1,6 +1,6 @@
 # WhatsApp Monitor
 
-Aplikasi pemantauan WhatsApp yang memungkinkan Anda memantau pesan WhatsApp tanpa mengubah status "dibaca" pesan tersebut. Dibangun dengan whatsapp-web.js dan Bootstrap 5.
+Aplikasi pemantauan WhatsApp yang memungkinkan Anda memantau pesan WhatsApp tanpa mengubah status **"dibaca"** pesan tersebut. Dibangun dengan whatsapp-web.js dan Bootstrap 5.
 
 ![WhatsApp Monitor Screenshot](https://placehold.co/600x400/128C7E/FFFFFF.png?text=WhatsApp+Monitor)
 
@@ -25,8 +25,8 @@ Aplikasi pemantauan WhatsApp yang memungkinkan Anda memantau pesan WhatsApp tanp
 
 1. Clone repositori ini:
    ```bash
-   git clone https://github.com/username/whatsapp-monitor.git
-   cd whatsapp-monitor
+   git clone https://github.com/tupski/wa-monitor.git
+   cd wa-monitor
    ```
 
 2. Instal dependensi:
@@ -86,4 +86,4 @@ Didistribusikan di bawah Lisensi MIT. Lihat `LICENSE` untuk informasi lebih lanj
 
 Angga Artupas - [@artupski](https://twitter.com/artupski) - artupski@gmail.com
 
-Link Proyek: [https://github.com/tupski/wa-monitor](https://github.com/tupaski/wa-monitor)
+Link Proyek: [https://github.com/tupski/wa-monitor](https://github.com/tupski/wa-monitor)
