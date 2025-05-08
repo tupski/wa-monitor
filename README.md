@@ -84,6 +84,6 @@ Didistribusikan di bawah Lisensi MIT. Lihat `LICENSE` untuk informasi lebih lanj
 
 ## Kontak
 
-Angga Artupas - [@twitter_handle](https://twitter.com/artupski) - artupski@gmail.com
+Angga Artupas - [@artupski](https://twitter.com/artupski) - artupski@gmail.com
 
 Link Proyek: [https://github.com/tupski/wa-monitor](https://github.com/tupaski/wa-monitor)
