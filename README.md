@@ -84,6 +84,6 @@ Didistribusikan di bawah Lisensi MIT. Lihat `LICENSE` untuk informasi lebih lanj
 
 ## Kontak
 
-Nama Anda - [@twitter_handle](https://twitter.com/twitter_handle) - email@example.com
+Angga Artupas - [@twitter_handle](https://twitter.com/artupski) - artupski@gmail.com
 
-Link Proyek: [https://github.com/username/whatsapp-monitor](https://github.com/username/whatsapp-monitor)
+Link Proyek: [https://github.com/tupski/wa-monitor](https://github.com/tupaski/wa-monitor)
