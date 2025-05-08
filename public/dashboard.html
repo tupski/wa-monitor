@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Monitor - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/emoji-toolkit@7.0.0/lib/js/joypixels.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-toolkit@7.0.0/extras/css/joypixels.min.css">
+</head>
+<body>
+    <div class="container-fluid p-0 vh-100">
+        <div class="row g-0 h-100">
+            <!-- Sidebar - Daftar Chat -->
+            <div class="col-md-4 col-lg-3 sidebar">
+                <div class="header">
+                    <div class="d-flex justify-content-between align-items-center p-3">
+                        <div class="user-info">
+                            <img src="https://placehold.co/40x40/128C7E/FFFFFF.png?text=WA" alt="Profile" class="rounded-circle">
+                            <span id="user-name">WhatsApp Monitor</span>
+                        </div>
+                        <div class="actions">
+                            <button type="button" class="btn btn-light rounded-circle" title="Refresh">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                            <button type="button" class="btn btn-light rounded-circle ms-2" id="logout-btn" title="Logout">
+                                <i class="bi bi-box-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="search-box p-2">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" class="form-control border-0 bg-light" placeholder="Cari atau mulai chat baru" id="search-input">
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-list" id="chat-list">
+                    <!-- Chat list akan diisi oleh JavaScript -->
+                    <div class="text-center p-5">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Memuat daftar chat...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content - Chat -->
+            <div class="col-md-8 col-lg-9 main-content">
+                <div id="welcome-screen" class="welcome-screen">
+                    <div class="text-center">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/1200px-WhatsApp.svg.png" alt="WhatsApp Logo" class="logo mb-4" style="width: 100px;">
+                        <h2>WhatsApp Monitor</h2>
+                        <p class="text-muted">Pilih chat di sidebar untuk melihat pesan</p>
+                    </div>
+                </div>
+
+                <div id="chat-screen" class="chat-screen d-none">
+                    <div class="chat-header">
+                        <div class="d-flex align-items-center p-3">
+                            <img src="https://placehold.co/40x40/128C7E/FFFFFF.png?text=WA" alt="Contact" class="rounded-circle me-3" id="chat-contact-img">
+                            <div>
+                                <h6 class="mb-0" id="chat-contact-name">Nama Kontak</h6>
+                                <small class="text-muted" id="chat-contact-status">online</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chat-body" id="chat-body">
+                        <!-- Pesan akan diisi oleh JavaScript -->
+                        <div class="text-center p-5">
+                            <div class="spinner-border text-success" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Memuat pesan...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal untuk menampilkan media -->
+    <div class="modal fade" id="mediaModal" tabindex="-1" aria-labelledby="mediaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="mediaModalLabel">Media</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center" id="mediaModalBody">
+                    <!-- Media content will be inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                    <a href="#" class="btn btn-primary" id="downloadMediaBtn" download>Unduh</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
