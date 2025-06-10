@@ -45,6 +45,37 @@ fs.ensureDirSync(mediaFolder);
 // Serve static files
 app.use(express.static('public'));
 app.use('/media', express.static('media'));
+app.use(express.json());
+
+// API endpoint for background sync
+app.post('/api/sync-messages', (req, res) => {
+    try {
+        console.log('Background sync request received');
+
+        // Return current sync status
+        const syncData = {
+            timestamp: Date.now(),
+            totalChats: chats.length,
+            totalMessages: Object.keys(messages).reduce((total, chatId) => {
+                return total + (messages[chatId] ? messages[chatId].length : 0);
+            }, 0),
+            isDownloading: downloadProgress.isDownloading,
+            downloadProgress: downloadProgress
+        };
+
+        res.json({
+            success: true,
+            data: syncData,
+            message: 'Background sync completed'
+        });
+    } catch (error) {
+        console.error('Background sync error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
 
 // Inisialisasi WhatsApp client dengan konfigurasi yang lebih robust
 const client = new Client({

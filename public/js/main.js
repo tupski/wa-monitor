@@ -121,9 +121,283 @@ class WAMonitorDashboard {
         this.setupEventListeners();
         this.setupSocketListeners();
         this.setupMobileHandlers();
+        this.requestNotificationPermission();
+        this.setupBackgroundSync();
         this.showWelcomeScreen();
 
         console.log('WA Monitor Pro Dashboard initialized');
+
+        // Setup service worker message listener
+        this.setupServiceWorkerListener();
+    }
+
+    /**
+     * Request notification permission from user
+     */
+    async requestNotificationPermission() {
+        if ('Notification' in window) {
+            if (Notification.permission === 'default') {
+                try {
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        console.log('Notification permission granted');
+                        this.showNotificationStatus('Notifikasi diaktifkan! Anda akan menerima pemberitahuan untuk pesan baru.', 'success');
+                    } else {
+                        console.log('Notification permission denied');
+                        this.showNotificationStatus('Notifikasi ditolak. Anda tidak akan menerima pemberitahuan pesan baru.', 'warning');
+                    }
+                } catch (error) {
+                    console.error('Error requesting notification permission:', error);
+                }
+            } else if (Notification.permission === 'granted') {
+                console.log('Notification permission already granted');
+            } else {
+                console.log('Notification permission denied');
+            }
+        } else {
+            console.log('Notifications not supported');
+        }
+    }
+
+    /**
+     * Setup background sync for message synchronization
+     */
+    async setupBackgroundSync() {
+        if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                console.log('Background sync supported and service worker ready');
+
+                // Register background sync
+                await registration.sync.register('background-sync-messages');
+                console.log('Background sync registered for messages');
+
+                this.showNotificationStatus('Sinkronisasi background diaktifkan! Pesan akan tetap tersinkron meskipun tab ditutup.', 'info');
+            } catch (error) {
+                console.error('Error setting up background sync:', error);
+            }
+        } else {
+            console.log('Background sync not supported');
+        }
+    }
+
+    /**
+     * Show notification status to user
+     */
+    showNotificationStatus(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = `
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 350px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+
+        notification.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="bi bi-bell me-2"></i>
+                <span>${message}</span>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+
+        document.body.appendChild(notification);
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (notification && notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    /**
+     * Show browser notification for new message
+     */
+    showBrowserNotification(message, chatId) {
+        if (Notification.permission !== 'granted') {
+            return;
+        }
+
+        // Don't show notification if the chat is currently open
+        if (this.state.currentChatId === chatId) {
+            return;
+        }
+
+        // Get contact/chat name
+        const chatName = this.getChatName(chatId);
+
+        // Prepare notification content
+        let notificationTitle = chatName || 'WhatsApp Message';
+        let notificationBody = '';
+        let notificationIcon = '/favicon.ico';
+
+        if (message.hasMedia) {
+            // Media message
+            const mediaType = message._data && message._data.mimetype ?
+                message._data.mimetype.split('/')[0] : 'media';
+
+            switch(mediaType) {
+                case 'image':
+                    notificationBody = '📷 Photo';
+                    break;
+                case 'video':
+                    notificationBody = '🎥 Video';
+                    break;
+                case 'audio':
+                    notificationBody = '🎵 Audio';
+                    break;
+                default:
+                    notificationBody = '📎 Document';
+            }
+        } else if (message.body) {
+            // Text message
+            notificationBody = message.body.length > 50 ?
+                message.body.substring(0, 50) + '...' :
+                message.body;
+        } else {
+            notificationBody = 'New message';
+        }
+
+        // Create and show notification
+        const notification = new Notification(notificationTitle, {
+            body: notificationBody,
+            icon: notificationIcon,
+            badge: notificationIcon,
+            tag: chatId, // This will replace previous notifications from same chat
+            requireInteraction: false,
+            silent: false
+        });
+
+        // Handle notification click
+        notification.onclick = () => {
+            window.focus();
+            this.selectChat(chatId);
+            notification.close();
+        };
+
+        // Auto close after 5 seconds
+        setTimeout(() => {
+            notification.close();
+        }, 5000);
+    }
+
+    /**
+     * Get chat name from chat ID
+     */
+    getChatName(chatId) {
+        // Try to find in chats list
+        const chat = this.state.allChats.find(c => c.id._serialized === chatId);
+        if (chat) {
+            return chat.name || chat.id.user;
+        }
+
+        // Try to find in contacts
+        const contact = this.state.contacts.find(c => c.id._serialized === chatId);
+        if (contact) {
+            return contact.name || contact.pushname || contact.id.user;
+        }
+
+        // Fallback to phone number
+        return chatId.split('@')[0];
+    }
+
+    /**
+     * Setup service worker message listener
+     */
+    setupServiceWorkerListener() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                console.log('Message from service worker:', event.data);
+
+                if (event.data && event.data.type === 'SYNC_COMPLETE') {
+                    this.handleBackgroundSyncComplete(event.data.data);
+                }
+            });
+
+            // Trigger periodic background sync
+            setInterval(() => {
+                this.triggerBackgroundSync();
+            }, 30000); // Every 30 seconds
+        }
+    }
+
+    /**
+     * Trigger background sync
+     */
+    async triggerBackgroundSync() {
+        if ('serviceWorker' in navigator) {
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                if (registration.active) {
+                    registration.active.postMessage({
+                        type: 'SYNC_MESSAGES'
+                    });
+                }
+            } catch (error) {
+                console.error('Error triggering background sync:', error);
+            }
+        }
+    }
+
+    /**
+     * Handle background sync completion
+     */
+    handleBackgroundSyncComplete(data) {
+        console.log('Background sync completed:', data);
+
+        // Show sync status
+        this.showSyncStatus('Pesan tersinkronisasi', 'success');
+
+        // Refresh chat list if needed
+        if (this.state.allChats.length !== data.totalChats) {
+            this.refreshChatList();
+        }
+    }
+
+    /**
+     * Show sync status indicator
+     */
+    showSyncStatus(message, type = 'success') {
+        // Remove existing sync status
+        const existingStatus = document.querySelector('.sync-status');
+        if (existingStatus) {
+            existingStatus.remove();
+        }
+
+        const syncStatus = document.createElement('div');
+        syncStatus.className = `sync-status ${type}`;
+
+        let icon = '';
+        switch(type) {
+            case 'success':
+                icon = '<i class="bi bi-check-circle"></i>';
+                break;
+            case 'syncing':
+                icon = '<div class="spinner"></div>';
+                break;
+            case 'error':
+                icon = '<i class="bi bi-exclamation-triangle"></i>';
+                break;
+        }
+
+        syncStatus.innerHTML = `
+            ${icon}
+            <span>${message}</span>
+        `;
+
+        document.body.appendChild(syncStatus);
+
+        // Auto remove after 3 seconds (except for syncing status)
+        if (type !== 'syncing') {
+            setTimeout(() => {
+                if (syncStatus && syncStatus.parentNode) {
+                    syncStatus.remove();
+                }
+            }, 3000);
+        }
     }
 
     /**
@@ -1057,6 +1331,9 @@ class WAMonitorDashboard {
         this.socket.on('ready', () => {
             console.log('WhatsApp ready');
 
+            // Show sync status
+            this.showSyncStatus('WhatsApp terhubung dan siap', 'success');
+
             // Show auto-download notification
             setTimeout(() => {
                 this.showAutoDownloadNotification();
@@ -1066,6 +1343,11 @@ class WAMonitorDashboard {
             setTimeout(() => {
                 this.showProfilePicturesLoadingNotification();
             }, 8000);
+
+            // Start background sync
+            setTimeout(() => {
+                this.triggerBackgroundSync();
+            }, 10000);
         });
 
         this.socket.on('qr', () => {
@@ -1099,6 +1381,10 @@ class WAMonitorDashboard {
 
         this.socket.on('new-message', (data) => {
             console.log('New message received');
+
+            // Show browser notification for new message
+            this.showBrowserNotification(data.message, data.chatId);
+
             // If message is for current chat, refresh messages
             if (this.state.currentChatId === data.chatId) {
                 this.socket.emit('get-messages', this.state.currentChatId);
@@ -1282,6 +1568,12 @@ class WAMonitorDashboard {
 
         // Setup media click handlers
         this.setupMediaHandlers();
+
+        // Setup enhanced video players
+        this.setupEnhancedVideoPlayers();
+
+        // Setup enhanced audio players
+        this.setupAudioPlayers();
     }
 
     /**
@@ -1314,21 +1606,29 @@ class WAMonitorDashboard {
                     </div>
                 `;
             } else if (mediaType === 'video') {
+                const videoId = `video_${messageId}_${Date.now()}`;
                 return `
                     <div class="message-media" data-message-id="${messageId}" data-chat-id="${chatId}">
-                        <div class="video-player">
-                            <video controls class="media-preview" preload="metadata">
-                                <source src="${message.mediaPath}" type="${message.mimetype}">
+                        <div class="video-player enhanced" data-video-id="${videoId}">
+                            <video
+                                id="${videoId}"
+                                controls
+                                class="media-preview"
+                                preload="metadata"
+                                playsinline
+                                webkit-playsinline
+                                controlsList="nodownload"
+                            >
+                                <source src="${message.mediaPath}" type="${message.mimetype || 'video/mp4'}">
                                 Your browser does not support the video tag.
                             </video>
-                            <div class="media-controls">
-                                <button class="media-control-btn" onclick="this.previousElementSibling.play()">
-                                    <i class="bi bi-play"></i>
+                            <div class="video-overlay" style="display: none;">
+                                <button class="video-play-btn">
+                                    <i class="bi bi-play-fill"></i>
                                 </button>
-                                <button class="media-control-btn" onclick="this.previousElementSibling.previousElementSibling.pause()">
-                                    <i class="bi bi-pause"></i>
-                                </button>
-                                <div class="media-info">Video • ${this.getFileSize(message.mediaPath)}</div>
+                            </div>
+                            <div class="media-info">
+                                <i class="bi bi-camera-video"></i> Video • ${this.getFileSize(message.mediaPath)}
                             </div>
                         </div>
                     </div>
@@ -1729,6 +2029,77 @@ class WAMonitorDashboard {
             if (!video.closest('.video-player.enhanced')) {
                 this.enhanceVideoPlayer(video);
             }
+        });
+    }
+
+    /**
+     * Setup enhanced video players with better controls
+     */
+    setupEnhancedVideoPlayers() {
+        document.querySelectorAll('.video-player.enhanced').forEach(player => {
+            const videoId = player.dataset.videoId;
+            const video = document.getElementById(videoId);
+            const overlay = player.querySelector('.video-overlay');
+            const playBtn = player.querySelector('.video-play-btn');
+
+            if (!video || !overlay || !playBtn) return;
+
+            // Show overlay when video is paused
+            video.addEventListener('pause', () => {
+                overlay.style.display = 'flex';
+            });
+
+            // Hide overlay when video is playing
+            video.addEventListener('play', () => {
+                overlay.style.display = 'none';
+            });
+
+            // Play button click
+            playBtn.addEventListener('click', () => {
+                if (video.paused) {
+                    // Pause all other videos
+                    document.querySelectorAll('video').forEach(otherVideo => {
+                        if (otherVideo !== video && !otherVideo.paused) {
+                            otherVideo.pause();
+                        }
+                    });
+
+                    video.play().catch(error => {
+                        console.error('Error playing video:', error);
+                        alert('Cannot play video. Please check the file format.');
+                    });
+                } else {
+                    video.pause();
+                }
+            });
+
+            // Video click to play/pause
+            video.addEventListener('click', () => {
+                if (video.paused) {
+                    video.play().catch(error => {
+                        console.error('Error playing video:', error);
+                    });
+                } else {
+                    video.pause();
+                }
+            });
+
+            // Handle video load errors
+            video.addEventListener('error', (e) => {
+                console.error('Video load error:', e);
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'video-error';
+                errorDiv.innerHTML = `
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span>Cannot load video</span>
+                `;
+                player.appendChild(errorDiv);
+            });
+
+            // Handle video loaded
+            video.addEventListener('loadeddata', () => {
+                console.log('Video loaded successfully:', videoId);
+            });
         });
     }
 
