@@ -55,8 +55,15 @@ class WAMonitorDashboard {
             // Modals
             mediaModal: document.getElementById('mediaModal'),
             exportModal: document.getElementById('exportModal'),
+            chatInfoModal: document.getElementById('chatInfoModal'),
             downloadMediaBtn: document.getElementById('downloadMediaBtn'),
-            startExport: document.getElementById('startExport')
+            startExport: document.getElementById('startExport'),
+
+            // Chat menu items
+            chatInfoBtn: document.getElementById('chat-info-btn'),
+            archiveChatBtn: document.getElementById('archive-chat-btn'),
+            clearHistoryBtn: document.getElementById('clear-history-btn'),
+            exportFromInfoBtn: document.getElementById('export-from-info')
         };
 
         // Application state
@@ -79,7 +86,8 @@ class WAMonitorDashboard {
         // Initialize Bootstrap modals
         this.modals = {
             media: new bootstrap.Modal(this.elements.mediaModal),
-            export: new bootstrap.Modal(this.elements.exportModal)
+            export: new bootstrap.Modal(this.elements.exportModal),
+            chatInfo: new bootstrap.Modal(this.elements.chatInfoModal)
         };
 
         // Initialize the application
@@ -181,6 +189,35 @@ class WAMonitorDashboard {
         if (this.elements.searchCloseBtn) {
             this.elements.searchCloseBtn.addEventListener('click', () => {
                 this.closeMessageSearch();
+            });
+        }
+
+        // Chat menu items
+        if (this.elements.chatInfoBtn) {
+            this.elements.chatInfoBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showChatInfo();
+            });
+        }
+
+        if (this.elements.archiveChatBtn) {
+            this.elements.archiveChatBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.archiveChat();
+            });
+        }
+
+        if (this.elements.clearHistoryBtn) {
+            this.elements.clearHistoryBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.clearChatHistory();
+            });
+        }
+
+        if (this.elements.exportFromInfoBtn) {
+            this.elements.exportFromInfoBtn.addEventListener('click', () => {
+                this.modals.chatInfo.hide();
+                this.modals.export.show();
             });
         }
 
@@ -507,24 +544,235 @@ class WAMonitorDashboard {
      * Handle export
      */
     handleExport() {
-        const format = document.querySelector('input[name="exportFormat"]:checked').value;
-        const range = document.getElementById('exportRange').value;
+        const format = document.querySelector('input[name="exportFormat"]:checked')?.value || 'json';
+        const range = document.getElementById('exportRange')?.value || 'all';
 
         if (!this.state.currentChatId) {
             alert('No chat selected');
             return;
         }
 
+        if (!this.state.currentMessages || this.state.currentMessages.length === 0) {
+            alert('No messages to export');
+            return;
+        }
+
         this.showLoading('Preparing export...');
 
-        // Emit export request to server
-        this.socket.emit('export-chat', {
-            chatId: this.state.currentChatId,
-            format: format,
-            range: range
-        });
+        // Generate export data
+        const exportData = this.generateExportData(format, range);
+
+        // Download the file
+        this.downloadExportFile(exportData, format);
 
         this.modals.export.hide();
+        this.hideLoading();
+    }
+
+    /**
+     * Generate export data
+     */
+    generateExportData(format, range) {
+        let messages = [...this.state.currentMessages];
+
+        // Filter by date range
+        if (range !== 'all') {
+            const now = Date.now();
+            let cutoffTime;
+
+            switch (range) {
+                case 'today':
+                    cutoffTime = now - (24 * 60 * 60 * 1000);
+                    break;
+                case 'week':
+                    cutoffTime = now - (7 * 24 * 60 * 60 * 1000);
+                    break;
+                case 'month':
+                    cutoffTime = now - (30 * 24 * 60 * 60 * 1000);
+                    break;
+                default:
+                    cutoffTime = 0;
+            }
+
+            messages = messages.filter(msg => (msg.timestamp * 1000) >= cutoffTime);
+        }
+
+        // Sort messages by timestamp
+        messages.sort((a, b) => a.timestamp - b.timestamp);
+
+        // Generate data based on format
+        switch (format) {
+            case 'json':
+                return this.generateJSONExport(messages);
+            case 'txt':
+                return this.generateTextExport(messages);
+            case 'html':
+                return this.generateHTMLExport(messages);
+            default:
+                return this.generateJSONExport(messages);
+        }
+    }
+
+    /**
+     * Generate JSON export
+     */
+    generateJSONExport(messages) {
+        const exportData = {
+            chatId: this.state.currentChatId,
+            contactName: this.getContactName(this.state.currentChatId),
+            exportDate: new Date().toISOString(),
+            messageCount: messages.length,
+            messages: messages.map(msg => ({
+                id: msg.id?.id || 'unknown',
+                timestamp: msg.timestamp,
+                date: new Date(msg.timestamp * 1000).toISOString(),
+                fromMe: msg.fromMe,
+                author: msg.author,
+                body: msg.body || '',
+                hasMedia: msg.hasMedia || false,
+                mediaType: msg.mimetype ? msg.mimetype.split('/')[0] : null,
+                mediaPath: msg.mediaPath || null,
+                isDeleted: msg._isDeleted || false,
+                type: msg.type || 'chat'
+            }))
+        };
+
+        return JSON.stringify(exportData, null, 2);
+    }
+
+    /**
+     * Generate text export
+     */
+    generateTextExport(messages) {
+        const contactName = this.getContactName(this.state.currentChatId);
+        let text = `WhatsApp Chat Export\n`;
+        text += `Contact: ${contactName}\n`;
+        text += `Export Date: ${new Date().toLocaleString()}\n`;
+        text += `Total Messages: ${messages.length}\n`;
+        text += `${'='.repeat(50)}\n\n`;
+
+        messages.forEach(msg => {
+            const date = new Date(msg.timestamp * 1000).toLocaleString();
+            const sender = msg.fromMe ? 'You' : (msg.author ? this.getContactName(msg.author) : contactName);
+
+            text += `[${date}] ${sender}: `;
+
+            if (msg._isDeleted) {
+                text += `🗑️ This message was deleted`;
+                if (msg.body) {
+                    text += `: ${msg.body}`;
+                }
+            } else if (msg.hasMedia) {
+                const mediaType = msg.mimetype ? msg.mimetype.split('/')[0] : 'media';
+                text += `📎 ${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)}`;
+                if (msg.body) {
+                    text += ` - ${msg.body}`;
+                }
+            } else {
+                text += msg.body || '(No content)';
+            }
+
+            text += '\n';
+        });
+
+        return text;
+    }
+
+    /**
+     * Generate HTML export
+     */
+    generateHTMLExport(messages) {
+        const contactName = this.getContactName(this.state.currentChatId);
+
+        let html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Chat - ${contactName}</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { background: #6366f1; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .message { margin: 10px 0; padding: 10px; border-radius: 10px; }
+        .sent { background: #dcf8c6; margin-left: 20%; }
+        .received { background: #f1f1f1; margin-right: 20%; }
+        .deleted { background: #ffebee; border-left: 3px solid #f44336; }
+        .media { background: #e3f2fd; border-left: 3px solid #2196f3; }
+        .timestamp { font-size: 0.8em; color: #666; margin-top: 5px; }
+        .sender { font-weight: bold; color: #6366f1; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>WhatsApp Chat Export</h1>
+        <p>Contact: ${contactName}</p>
+        <p>Export Date: ${new Date().toLocaleString()}</p>
+        <p>Total Messages: ${messages.length}</p>
+    </div>
+`;
+
+        messages.forEach(msg => {
+            const date = new Date(msg.timestamp * 1000).toLocaleString();
+            const sender = msg.fromMe ? 'You' : (msg.author ? this.getContactName(msg.author) : contactName);
+            const messageClass = msg.fromMe ? 'sent' : 'received';
+            const additionalClass = msg._isDeleted ? ' deleted' : (msg.hasMedia ? ' media' : '');
+
+            html += `    <div class="message ${messageClass}${additionalClass}">`;
+
+            if (!msg.fromMe && msg.author) {
+                html += `        <div class="sender">${sender}</div>`;
+            }
+
+            html += `        <div class="content">`;
+
+            if (msg._isDeleted) {
+                html += `🗑️ This message was deleted`;
+                if (msg.body) {
+                    html += `: ${this.escapeHtml(msg.body)}`;
+                }
+            } else if (msg.hasMedia) {
+                const mediaType = msg.mimetype ? msg.mimetype.split('/')[0] : 'media';
+                html += `📎 ${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)}`;
+                if (msg.body) {
+                    html += ` - ${this.escapeHtml(msg.body)}`;
+                }
+            } else {
+                html += this.escapeHtml(msg.body || '(No content)');
+            }
+
+            html += `        </div>`;
+            html += `        <div class="timestamp">${date}</div>`;
+            html += `    </div>\n`;
+        });
+
+        html += `</body>
+</html>`;
+
+        return html;
+    }
+
+    /**
+     * Download export file
+     */
+    downloadExportFile(data, format) {
+        const contactName = this.getContactName(this.state.currentChatId);
+        const timestamp = new Date().toISOString().split('T')[0];
+        const filename = `whatsapp-${contactName}-${timestamp}.${format}`;
+
+        const blob = new Blob([data], {
+            type: format === 'html' ? 'text/html' : 'text/plain'
+        });
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        console.log(`Export completed: ${filename}`);
     }
 
     /**
@@ -904,6 +1152,17 @@ class WAMonitorDashboard {
      * Render media message
      */
     renderMediaMessage(message, chatId) {
+        // Check message type first
+        if (message.type === 'sticker') {
+            return this.renderStickerMessage(message, chatId);
+        } else if (message.type === 'location') {
+            return this.renderLocationMessage(message, chatId);
+        } else if (message.type === 'document') {
+            return this.renderDocumentMessage(message, chatId);
+        } else if (message.isViewOnce) {
+            return this.renderViewOnceMessage(message, chatId);
+        }
+
         const mediaType = message._data && message._data.mimetype ?
             message._data.mimetype.split('/')[0] :
             (message.mimetype ? message.mimetype.split('/')[0] : 'unknown');
@@ -1375,6 +1634,152 @@ class WAMonitorDashboard {
     }
 
     /**
+     * Render location message
+     */
+    renderLocationMessage(message, chatId) {
+        const messageId = message.id ? message.id.id : 'unknown';
+        const location = message.location || {};
+        const latitude = location.latitude || 0;
+        const longitude = location.longitude || 0;
+        const name = location.name || 'Shared Location';
+        const address = location.address || `${latitude}, ${longitude}`;
+
+        return `
+            <div class="message-media location-message" data-message-id="${messageId}" data-chat-id="${chatId}">
+                <div class="location-preview">
+                    <i class="bi bi-geo-alt-fill">📍</i>
+                </div>
+                <div class="location-info">
+                    <div class="location-name">${this.escapeHtml(name)}</div>
+                    <div class="location-address">${this.escapeHtml(address)}</div>
+                    <div class="location-coordinates">${latitude}, ${longitude}</div>
+                </div>
+                <div class="location-actions">
+                    <button class="location-btn" onclick="window.open('https://maps.google.com/maps?q=${latitude},${longitude}', '_blank')">
+                        <i class="bi bi-map"></i> View
+                    </button>
+                    <button class="location-btn" onclick="navigator.clipboard.writeText('${latitude}, ${longitude}')">
+                        <i class="bi bi-clipboard"></i> Copy
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render view once message
+     */
+    renderViewOnceMessage(message, chatId) {
+        const messageId = message.id ? message.id.id : 'unknown';
+        const isExpired = message.viewOnceExpired || false;
+        const mediaType = message.mimetype ? message.mimetype.split('/')[0] : 'media';
+
+        if (isExpired) {
+            return `
+                <div class="message-media view-once-message view-once-expired" data-message-id="${messageId}" data-chat-id="${chatId}">
+                    <div class="view-once-icon">👁️‍🗨️</div>
+                    <div class="view-once-text">View once ${mediaType}</div>
+                    <div class="view-once-text">Expired</div>
+                </div>
+            `;
+        } else if (message.mediaPath) {
+            // Show the media but mark as view once
+            return `
+                <div class="message-media view-once-message" data-message-id="${messageId}" data-chat-id="${chatId}">
+                    <div class="view-once-icon">👁️</div>
+                    <div class="view-once-text">View once ${mediaType}</div>
+                    <div class="view-once-text">Tap to view</div>
+                </div>
+            `;
+        } else {
+            return `
+                <div class="message-media view-once-message" data-message-id="${messageId}" data-chat-id="${chatId}">
+                    <div class="view-once-icon">👁️‍🗨️</div>
+                    <div class="view-once-text">View once ${mediaType}</div>
+                    <div class="view-once-text">Loading...</div>
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Render document message
+     */
+    renderDocumentMessage(message, chatId) {
+        const messageId = message.id ? message.id.id : 'unknown';
+        const filename = message.filename || message.mediaPath?.split('/').pop() || 'Document';
+        const filesize = message.filesize || 'Unknown size';
+        const mimetype = message.mimetype || '';
+
+        // Determine document type and icon
+        let docType = 'default';
+        let docIcon = 'bi-file-earmark';
+
+        if (mimetype.includes('pdf')) {
+            docType = 'pdf';
+            docIcon = 'bi-file-earmark-pdf';
+        } else if (mimetype.includes('word') || mimetype.includes('document')) {
+            docType = 'doc';
+            docIcon = 'bi-file-earmark-word';
+        } else if (mimetype.includes('sheet') || mimetype.includes('excel')) {
+            docType = 'xls';
+            docIcon = 'bi-file-earmark-excel';
+        } else if (mimetype.includes('presentation') || mimetype.includes('powerpoint')) {
+            docType = 'ppt';
+            docIcon = 'bi-file-earmark-ppt';
+        } else if (mimetype.includes('zip') || mimetype.includes('rar') || mimetype.includes('archive')) {
+            docType = 'zip';
+            docIcon = 'bi-file-earmark-zip';
+        }
+
+        const formattedSize = this.formatFileSize(filesize);
+
+        return `
+            <div class="message-media document-message" data-message-id="${messageId}" data-chat-id="${chatId}">
+                <div class="document-header">
+                    <div class="document-type-icon ${docType}">
+                        <i class="bi ${docIcon}">📄</i>
+                    </div>
+                    <div class="document-details">
+                        <div class="document-filename">${this.escapeHtml(filename)}</div>
+                        <div class="document-meta">
+                            <span class="document-size">${formattedSize}</span>
+                            <span class="document-type">${docType.toUpperCase()}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="document-actions">
+                    ${message.mediaPath ?
+                        `<a href="${message.mediaPath}" download class="document-action-btn primary">
+                            <i class="bi bi-download"></i> Download
+                        </a>
+                        <button class="document-action-btn" onclick="window.open('${message.mediaPath}', '_blank')">
+                            <i class="bi bi-eye"></i> Preview
+                        </button>` :
+                        `<button class="document-action-btn primary" onclick="this.downloadDocument('${messageId}', '${chatId}')">
+                            <i class="bi bi-download"></i> Download
+                        </button>`
+                    }
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Format file size
+     */
+    formatFileSize(bytes) {
+        if (typeof bytes === 'string') return bytes;
+        if (bytes === 0) return '0 Bytes';
+
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    /**
      * Check if message should not be marked as read
      */
     preventReadReceipt() {
@@ -1608,6 +2013,109 @@ class WAMonitorDashboard {
                 `${this.state.currentSearchIndex + 1} of ${this.state.searchResults.length}`;
             this.elements.searchPrevBtn.disabled = false;
             this.elements.searchNextBtn.disabled = false;
+        }
+    }
+
+    /**
+     * Show chat info modal
+     */
+    showChatInfo() {
+        if (!this.state.currentChatId) {
+            alert('No chat selected');
+            return;
+        }
+
+        this.populateChatInfo();
+        this.modals.chatInfo.show();
+    }
+
+    /**
+     * Populate chat info modal with data
+     */
+    populateChatInfo() {
+        const contactName = this.getContactName(this.state.currentChatId);
+        const messages = this.state.currentMessages || [];
+
+        // Update contact info
+        document.getElementById('chat-info-name').textContent = contactName;
+        document.getElementById('chat-info-number').textContent = this.state.currentChatId;
+
+        // Update avatar
+        const avatar = document.getElementById('chat-info-avatar');
+        const avatarColor = this.getAvatarColor(contactName);
+        avatar.style.background = avatarColor;
+
+        // Calculate statistics
+        const totalMessages = messages.length;
+        const mediaMessages = messages.filter(msg => msg.hasMedia).length;
+        const callMessages = messages.filter(msg => msg.type === 'call_log').length;
+
+        document.getElementById('total-messages').textContent = totalMessages;
+        document.getElementById('total-media').textContent = mediaMessages;
+        document.getElementById('total-calls').textContent = callMessages;
+
+        // Calculate dates
+        if (messages.length > 0) {
+            const sortedMessages = [...messages].sort((a, b) => a.timestamp - b.timestamp);
+            const firstMessage = sortedMessages[0];
+            const lastMessage = sortedMessages[sortedMessages.length - 1];
+
+            document.getElementById('first-message-date').textContent =
+                new Date(firstMessage.timestamp * 1000).toLocaleDateString();
+            document.getElementById('last-activity-date').textContent =
+                new Date(lastMessage.timestamp * 1000).toLocaleDateString();
+        } else {
+            document.getElementById('first-message-date').textContent = '-';
+            document.getElementById('last-activity-date').textContent = '-';
+        }
+
+        // Chat type
+        const chatType = this.state.currentChatId.includes('@g.us') ? 'Group' : 'Individual';
+        document.getElementById('chat-type').textContent = chatType;
+    }
+
+    /**
+     * Archive chat
+     */
+    archiveChat() {
+        if (!this.state.currentChatId) {
+            alert('No chat selected');
+            return;
+        }
+
+        if (confirm('Are you sure you want to archive this chat?')) {
+            // In a real implementation, this would call the WhatsApp API
+            alert('Archive functionality would be implemented here.\nThis requires WhatsApp Web API integration.');
+        }
+    }
+
+    /**
+     * Clear chat history
+     */
+    clearChatHistory() {
+        if (!this.state.currentChatId) {
+            alert('No chat selected');
+            return;
+        }
+
+        if (confirm('Are you sure you want to clear chat history?\nThis action cannot be undone.')) {
+            // Clear local messages
+            this.state.currentMessages = [];
+
+            // Clear chat body
+            if (this.elements.chatBody) {
+                this.elements.chatBody.innerHTML = `
+                    <div class="loading-state">
+                        <div class="loading-spinner">
+                            <div class="spinner"></div>
+                        </div>
+                        <p class="loading-text">Chat history cleared</p>
+                    </div>
+                `;
+            }
+
+            // In a real implementation, this would also clear server-side data
+            console.log('Chat history cleared for:', this.state.currentChatId);
         }
     }
 }

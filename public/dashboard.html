@@ -143,10 +143,10 @@
                                 <i class="bi bi-three-dots-vertical"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="#"><i class="bi bi-info-circle me-2"></i>Chat Info</a></li>
-                                <li><a class="dropdown-item" href="#"><i class="bi bi-archive me-2"></i>Archive</a></li>
+                                <li><a class="dropdown-item" href="#" id="chat-info-btn"><i class="bi bi-info-circle me-2"></i>Chat Info</a></li>
+                                <li><a class="dropdown-item" href="#" id="archive-chat-btn"><i class="bi bi-archive me-2"></i>Archive</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash me-2"></i>Clear History</a></li>
+                                <li><a class="dropdown-item text-danger" href="#" id="clear-history-btn"><i class="bi bi-trash me-2"></i>Clear History</a></li>
                             </ul>
                         </div>
                     </div>
@@ -258,6 +258,78 @@
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" id="startExport">
                         <i class="bi bi-download me-1"></i>Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Info Modal -->
+    <div class="modal fade" id="chatInfoModal" tabindex="-1" aria-labelledby="chatInfoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title" id="chatInfoModalLabel">
+                        <i class="bi bi-info-circle me-2"></i>Chat Information
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="chat-info-content">
+                        <div class="text-center mb-4">
+                            <div class="chat-info-avatar" id="chat-info-avatar">
+                                <i class="bi bi-person"></i>
+                            </div>
+                            <h4 class="chat-info-name" id="chat-info-name">Contact Name</h4>
+                            <p class="chat-info-number" id="chat-info-number">+1234567890</p>
+                        </div>
+
+                        <div class="chat-stats">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="stat-item">
+                                        <div class="stat-number" id="total-messages">0</div>
+                                        <div class="stat-label">Messages</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="stat-item">
+                                        <div class="stat-number" id="total-media">0</div>
+                                        <div class="stat-label">Media</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="stat-item">
+                                        <div class="stat-number" id="total-calls">0</div>
+                                        <div class="stat-label">Calls</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chat-details mt-4">
+                            <div class="detail-item">
+                                <i class="bi bi-calendar3 me-2"></i>
+                                <span class="detail-label">First Message:</span>
+                                <span class="detail-value" id="first-message-date">-</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="bi bi-clock me-2"></i>
+                                <span class="detail-label">Last Activity:</span>
+                                <span class="detail-value" id="last-activity-date">-</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="bi bi-chat-dots me-2"></i>
+                                <span class="detail-label">Chat Type:</span>
+                                <span class="detail-value" id="chat-type">Individual</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="export-from-info">
+                        <i class="bi bi-download me-1"></i>Export Chat
                     </button>
                 </div>
             </div>

@@ -603,7 +603,7 @@ client.on('call', async (call) => {
 client.initialize();
 
 // Start server
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 server.listen(PORT, () => {
     console.log(`🚀 WA Monitor Pro server running on port ${PORT}`);
     console.log(`📱 Access the application at: http://localhost:${PORT}`);

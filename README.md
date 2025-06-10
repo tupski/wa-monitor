@@ -35,12 +35,19 @@
 
 ### 🔧 **Enhanced Features**
 - **Real-time message monitoring** with instant updates
-- **Deleted message recovery** with persistent storage
+- **Deleted message recovery** with persistent storage and playback
 - **Media download and preview** with automatic handling
-- **Advanced search functionality** across conversations and messages
+- **Advanced search functionality** with highlighting and navigation
 - **Export capabilities** (JSON, TXT, HTML formats)
-- **Secure authentication** with enhanced session management
-- **Performance optimizations** for handling large message volumes
+- **Call logs tracking** with duration and status
+- **Location message support** with interactive maps
+- **View-once media handling** for ephemeral content
+- **Enhanced document display** with type-specific icons
+- **Sticker support** with full rendering
+- **Audio/Video players** with enhanced controls
+- **Stealth monitoring** without marking messages as read
+- **Chat information** with detailed statistics
+- **Mobile-optimized interface** with perfect responsiveness
 
 ## 🚀 Quick Start
 
@@ -68,7 +75,7 @@
    ```
 
 4. **Access the application**
-   - Open your browser and navigate to `http://localhost:3001`
+   - Open your browser and navigate to `http://localhost:3002`
    - Scan the QR code with your WhatsApp mobile app
    - Start monitoring conversations in real-time
 
@@ -97,6 +104,69 @@ npm run dev  # Runs with nodemon for auto-restart
 - **Enhanced touch targets** for better usability
 - **Optimized typography** for comfortable reading
 - **Balanced information density**
+
+## 🆕 Latest Features (v2.0 Complete Enhanced Edition)
+
+### 📞 **Call Logs & Phone Tracking**
+- **Automatic Call Detection**: Detects and logs all incoming/outgoing calls
+- **Call Duration Tracking**: Shows call duration when available
+- **Call Status Indicators**: Visual indicators for missed, incoming, outgoing calls
+- **Video Call Support**: Differentiated icons for video calls
+- **Call History**: Complete call log with timestamps
+- **Color-coded Icons**: Green (incoming), Blue (outgoing), Red (missed), Purple (video)
+
+### 💾 **Deleted Content Recovery**
+- **Deleted Messages**: Preserve and display deleted text messages
+- **Deleted Media Recovery**: Images, videos, audio files remain accessible
+- **Deleted Stickers**: Stickers that were deleted remain visible
+- **Deleted Documents**: Document files remain downloadable
+- **Media Playback**: Deleted media can still be played/viewed
+- **Visual Indicators**: Clear marking of deleted content
+
+### 🔍 **Advanced Message Search**
+- **Real-time Search**: Instant search as you type
+- **Search Highlighting**: Visual highlighting of search terms
+- **Result Navigation**: Previous/Next buttons for search results
+- **Result Counter**: Shows "X of Y" results
+- **Keyboard Shortcuts**: Enter (next), Shift+Enter (previous), Escape (close)
+- **Proper Positioning**: Search bar positioned correctly on all devices
+
+### 📍 **Enhanced Message Types**
+- **Location Messages**: Interactive location sharing with map links
+- **View Once Media**: Handle ephemeral photos and videos
+- **Document Messages**: Enhanced display with file type icons
+- **Sticker Support**: Full sticker rendering and display
+- **Contact Cards**: Contact sharing support
+- **Voice Messages**: Voice note playback with controls
+
+### 🎵 **Enhanced Media Players**
+- **Audio Player**: Enhanced audio controls with progress bar
+- **Video Player**: Full video player with controls and metadata
+- **Media Information**: File size and type information
+- **Responsive Design**: Optimized for mobile and desktop
+- **Preload Support**: Metadata preloading for better performance
+
+### 📊 **Chat Management & Information**
+- **Chat Info Modal**: Detailed chat statistics and information
+- **Message Statistics**: Total messages, media count, call count
+- **Date Tracking**: First message date and last activity
+- **Chat Type Detection**: Individual vs Group chat identification
+- **Export Integration**: Direct export from chat info
+
+### 📁 **Multiple Export Formats**
+- **JSON Export**: Structured data with full message information
+- **Text Export**: Human-readable chat transcript
+- **HTML Export**: Styled web page with formatting
+- **Date Filtering**: Export by date range (today, week, month, all)
+- **Automatic Download**: Files download automatically
+- **Filename Generation**: Smart filename with contact name and date
+
+### 🔒 **Stealth Monitoring Mode**
+- **No Read Receipts**: Messages remain unread in WhatsApp
+- **Silent Monitoring**: Monitor without affecting chat status
+- **Server-side Prevention**: Read status prevention at API level
+- **Real-time Updates**: Still receive instant updates
+- **Privacy Focused**: Monitor without leaving traces
 
 ## Fitur Utama
 
