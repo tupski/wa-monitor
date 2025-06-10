@@ -63,7 +63,13 @@ class WAMonitorDashboard {
             chatInfoBtn: document.getElementById('chat-info-btn'),
             archiveChatBtn: document.getElementById('archive-chat-btn'),
             clearHistoryBtn: document.getElementById('clear-history-btn'),
-            exportFromInfoBtn: document.getElementById('export-from-info')
+            exportFromInfoBtn: document.getElementById('export-from-info'),
+
+            // Download all messages
+            downloadAllBtn: document.getElementById('download-all-btn'),
+            downloadProgressModal: document.getElementById('downloadProgressModal'),
+            stopDownloadBtn: document.getElementById('stop-download-btn'),
+            closeDownloadModal: document.getElementById('close-download-modal')
         };
 
         // Application state
@@ -87,7 +93,8 @@ class WAMonitorDashboard {
         this.modals = {
             media: new bootstrap.Modal(this.elements.mediaModal),
             export: new bootstrap.Modal(this.elements.exportModal),
-            chatInfo: new bootstrap.Modal(this.elements.chatInfoModal)
+            chatInfo: new bootstrap.Modal(this.elements.chatInfoModal),
+            downloadProgress: new bootstrap.Modal(this.elements.downloadProgressModal)
         };
 
         // Initialize the application
@@ -218,6 +225,25 @@ class WAMonitorDashboard {
             this.elements.exportFromInfoBtn.addEventListener('click', () => {
                 this.modals.chatInfo.hide();
                 this.modals.export.show();
+            });
+        }
+
+        // Download all messages
+        if (this.elements.downloadAllBtn) {
+            this.elements.downloadAllBtn.addEventListener('click', () => {
+                this.startDownloadAll();
+            });
+        }
+
+        if (this.elements.stopDownloadBtn) {
+            this.elements.stopDownloadBtn.addEventListener('click', () => {
+                this.stopDownload();
+            });
+        }
+
+        if (this.elements.closeDownloadModal) {
+            this.elements.closeDownloadModal.addEventListener('click', () => {
+                this.modals.downloadProgress.hide();
             });
         }
 
@@ -978,6 +1004,11 @@ class WAMonitorDashboard {
 
         this.socket.on('ready', () => {
             console.log('WhatsApp ready');
+
+            // Show auto-download notification
+            setTimeout(() => {
+                this.showAutoDownloadNotification();
+            }, 2000);
         });
 
         this.socket.on('qr', () => {
@@ -1041,6 +1072,25 @@ class WAMonitorDashboard {
         this.socket.on('deleted-media', (data) => {
             console.log('Deleted media received:', data);
             // Handle deleted media display
+        });
+
+        // Download progress events
+        this.socket.on('download-progress', (progress) => {
+            this.updateDownloadProgress(progress);
+            this.updateAutoDownloadNotification(progress);
+        });
+
+        this.socket.on('download-complete', (result) => {
+            this.handleDownloadComplete(result);
+        });
+
+        this.socket.on('download-stopped', (data) => {
+            this.handleDownloadStopped(data);
+        });
+
+        this.socket.on('download-already-running', (progress) => {
+            this.showDownloadProgress();
+            this.updateDownloadProgress(progress);
         });
 
         this.socket.on('media-downloaded', (data) => {
@@ -2116,6 +2166,331 @@ class WAMonitorDashboard {
 
             // In a real implementation, this would also clear server-side data
             console.log('Chat history cleared for:', this.state.currentChatId);
+        }
+    }
+
+    /**
+     * Start download all messages
+     */
+    startDownloadAll() {
+        console.log('Starting download all messages...');
+
+        // Show download progress modal
+        this.showDownloadProgress();
+
+        // Request download start
+        this.socket.emit('start-download-all');
+
+        // Update button state
+        if (this.elements.downloadAllBtn) {
+            this.elements.downloadAllBtn.classList.add('downloading');
+            this.elements.downloadAllBtn.innerHTML = '<i class="bi bi-cloud-download"></i> Downloading...';
+            this.elements.downloadAllBtn.disabled = true;
+        }
+    }
+
+    /**
+     * Show download progress modal
+     */
+    showDownloadProgress() {
+        this.modals.downloadProgress.show();
+
+        // Reset progress display
+        this.resetDownloadProgress();
+
+        // Show stop button, hide close button
+        if (this.elements.stopDownloadBtn) {
+            this.elements.stopDownloadBtn.style.display = 'block';
+        }
+        if (this.elements.closeDownloadModal) {
+            this.elements.closeDownloadModal.style.display = 'none';
+        }
+    }
+
+    /**
+     * Reset download progress display
+     */
+    resetDownloadProgress() {
+        // Reset progress bars
+        document.getElementById('overall-progress-bar').style.width = '0%';
+        document.getElementById('chat-progress-bar').style.width = '0%';
+
+        // Reset text displays
+        document.getElementById('overall-percentage').textContent = '0%';
+        document.getElementById('current-chat-name').textContent = '-';
+        document.getElementById('processed-chats').textContent = '0';
+        document.getElementById('processed-messages').textContent = '0';
+        document.getElementById('download-errors').textContent = '0';
+        document.getElementById('elapsed-time').textContent = '00:00';
+        document.getElementById('estimated-time').textContent = 'Calculating...';
+        document.getElementById('download-status-text').textContent = 'Preparing download...';
+
+        // Clear log
+        document.getElementById('log-content').innerHTML = '';
+        document.getElementById('download-log').style.display = 'none';
+    }
+
+    /**
+     * Update download progress
+     */
+    updateDownloadProgress(progress) {
+        if (!progress) return;
+
+        // Update overall progress
+        const overallPercent = progress.totalChats > 0 ?
+            Math.round((progress.processedChats / progress.totalChats) * 100) : 0;
+
+        document.getElementById('overall-progress-bar').style.width = `${overallPercent}%`;
+        document.getElementById('overall-percentage').textContent = `${overallPercent}%`;
+
+        // Update current chat
+        document.getElementById('current-chat-name').textContent = progress.currentChat || '-';
+
+        // Update statistics
+        document.getElementById('processed-chats').textContent = progress.processedChats;
+        document.getElementById('processed-messages').textContent = progress.processedMessages;
+        document.getElementById('download-errors').textContent = progress.errors.length;
+
+        // Update time displays
+        if (progress.startTime) {
+            const elapsed = Math.round((Date.now() - progress.startTime) / 1000);
+            document.getElementById('elapsed-time').textContent = this.formatDuration(elapsed);
+        }
+
+        if (progress.estimatedTimeRemaining > 0) {
+            document.getElementById('estimated-time').textContent =
+                this.formatDuration(progress.estimatedTimeRemaining);
+        }
+
+        // Update status text
+        if (progress.isDownloading) {
+            document.getElementById('download-status-text').textContent =
+                `Processing ${progress.currentChat || 'chat'}...`;
+        }
+
+        // Add progress bars animation
+        const progressBars = document.querySelectorAll('.progress-bar');
+        progressBars.forEach(bar => {
+            if (progress.isDownloading) {
+                bar.classList.add('animated');
+            } else {
+                bar.classList.remove('animated');
+            }
+        });
+
+        // Show log if there are errors
+        if (progress.errors.length > 0) {
+            document.getElementById('download-log').style.display = 'block';
+            this.updateDownloadLog(progress.errors);
+        }
+    }
+
+    /**
+     * Update download log
+     */
+    updateDownloadLog(errors) {
+        const logContent = document.getElementById('log-content');
+
+        // Clear existing log
+        logContent.innerHTML = '';
+
+        // Add recent errors
+        errors.slice(-10).forEach(error => {
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `
+                <span class="log-timestamp">${new Date().toLocaleTimeString()}</span>
+                <span class="log-message log-error">Error in ${error.chat}: ${error.error}</span>
+            `;
+            logContent.appendChild(logEntry);
+        });
+
+        // Scroll to bottom
+        logContent.scrollTop = logContent.scrollHeight;
+    }
+
+    /**
+     * Handle download complete
+     */
+    handleDownloadComplete(result) {
+        console.log('Download completed:', result);
+
+        // Update status
+        document.getElementById('download-status-text').textContent =
+            `Download completed! ${result.totalMessages} messages from ${result.totalChats} chats`;
+
+        // Update button state
+        if (this.elements.downloadAllBtn) {
+            this.elements.downloadAllBtn.classList.remove('downloading');
+            this.elements.downloadAllBtn.classList.add('download-complete');
+            this.elements.downloadAllBtn.innerHTML = '<i class="bi bi-check-circle"></i> Completed';
+            this.elements.downloadAllBtn.disabled = false;
+        }
+
+        // Hide stop button, show close button
+        if (this.elements.stopDownloadBtn) {
+            this.elements.stopDownloadBtn.style.display = 'none';
+        }
+        if (this.elements.closeDownloadModal) {
+            this.elements.closeDownloadModal.style.display = 'block';
+        }
+
+        // Remove progress bar animation
+        document.querySelectorAll('.progress-bar').forEach(bar => {
+            bar.classList.remove('animated');
+        });
+
+        // Show completion log
+        this.addDownloadLogEntry('success', `Download completed successfully! ${result.totalMessages} messages processed.`);
+
+        if (result.errors.length > 0) {
+            this.addDownloadLogEntry('error', `${result.errors.length} errors encountered during download.`);
+        }
+
+        // Auto-close modal after 5 seconds
+        setTimeout(() => {
+            if (this.modals.downloadProgress) {
+                this.modals.downloadProgress.hide();
+            }
+        }, 5000);
+    }
+
+    /**
+     * Handle download stopped
+     */
+    handleDownloadStopped(data) {
+        console.log('Download stopped:', data);
+
+        // Update status
+        document.getElementById('download-status-text').textContent = 'Download stopped by user';
+
+        // Update button state
+        if (this.elements.downloadAllBtn) {
+            this.elements.downloadAllBtn.classList.remove('downloading');
+            this.elements.downloadAllBtn.innerHTML = '<i class="bi bi-cloud-download"></i> Download All';
+            this.elements.downloadAllBtn.disabled = false;
+        }
+
+        // Hide stop button, show close button
+        if (this.elements.stopDownloadBtn) {
+            this.elements.stopDownloadBtn.style.display = 'none';
+        }
+        if (this.elements.closeDownloadModal) {
+            this.elements.closeDownloadModal.style.display = 'block';
+        }
+
+        // Remove progress bar animation
+        document.querySelectorAll('.progress-bar').forEach(bar => {
+            bar.classList.remove('animated');
+        });
+
+        this.addDownloadLogEntry('error', 'Download stopped by user request');
+    }
+
+    /**
+     * Stop download
+     */
+    stopDownload() {
+        console.log('Stopping download...');
+        this.socket.emit('stop-download');
+
+        // Update button
+        if (this.elements.stopDownloadBtn) {
+            this.elements.stopDownloadBtn.innerHTML = '<i class="bi bi-stop-circle"></i> Stopping...';
+            this.elements.stopDownloadBtn.disabled = true;
+        }
+    }
+
+    /**
+     * Add entry to download log
+     */
+    addDownloadLogEntry(type, message) {
+        const logContent = document.getElementById('log-content');
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry';
+
+        const timestamp = new Date().toLocaleTimeString();
+        const typeClass = type === 'error' ? 'log-error' : type === 'success' ? 'log-success' : 'log-message';
+
+        logEntry.innerHTML = `
+            <span class="log-timestamp">${timestamp}</span>
+            <span class="log-message ${typeClass}">${message}</span>
+        `;
+
+        logContent.appendChild(logEntry);
+        logContent.scrollTop = logContent.scrollHeight;
+
+        // Show log container
+        document.getElementById('download-log').style.display = 'block';
+    }
+
+    /**
+     * Format duration in seconds to readable format
+     */
+    formatDuration(seconds) {
+        if (seconds < 60) {
+            return `${seconds}s`;
+        } else if (seconds < 3600) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        } else {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            return `${hours}:${minutes.toString().padStart(2, '0')}:00`;
+        }
+    }
+
+    /**
+     * Update auto-download notification
+     */
+    updateAutoDownloadNotification(progress) {
+        const notification = document.getElementById('auto-download-notification');
+        const progressBar = document.getElementById('auto-download-progress');
+        const progressText = document.getElementById('auto-download-text');
+
+        if (!notification || !progressBar || !progressText) return;
+
+        if (progress.isDownloading) {
+            // Show notification
+            notification.classList.remove('hidden');
+
+            // Update progress
+            const overallPercent = progress.totalChats > 0 ?
+                Math.round((progress.processedChats / progress.totalChats) * 100) : 0;
+
+            progressBar.style.width = `${overallPercent}%`;
+
+            // Update text
+            if (progress.currentChat) {
+                progressText.textContent = `Processing ${progress.currentChat}... (${progress.processedChats}/${progress.totalChats} chats)`;
+            } else {
+                progressText.textContent = `Preparing download... (${progress.processedMessages} messages processed)`;
+            }
+        } else {
+            // Hide notification after a delay
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 3000);
+
+            progressText.textContent = 'Download completed!';
+            progressBar.style.width = '100%';
+        }
+    }
+
+    /**
+     * Show auto-download notification on ready
+     */
+    showAutoDownloadNotification() {
+        const notification = document.getElementById('auto-download-notification');
+        if (notification) {
+            notification.classList.remove('hidden');
+
+            // Update initial text
+            const progressText = document.getElementById('auto-download-text');
+            if (progressText) {
+                progressText.textContent = 'Starting automatic download...';
+            }
         }
     }
 }

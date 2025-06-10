@@ -81,6 +81,250 @@ let deletedMessages = {}; // Untuk menyimpan pesan yang dihapus
 let deletedMediaCache = new Map(); // Cache untuk media yang dihapus
 let callLogsCache = new Map(); // Cache untuk call logs
 
+// Progress tracking untuk download
+let downloadProgress = {
+    isDownloading: false,
+    totalChats: 0,
+    processedChats: 0,
+    totalMessages: 0,
+    processedMessages: 0,
+    currentChat: '',
+    errors: [],
+    startTime: null,
+    estimatedTimeRemaining: 0
+};
+
+// Fungsi untuk mengunduh semua pesan dari semua chat
+async function downloadAllMessages() {
+    if (downloadProgress.isDownloading) {
+        console.log('Download already in progress...');
+        return;
+    }
+
+    console.log('🚀 Starting comprehensive message download...');
+    downloadProgress.isDownloading = true;
+    downloadProgress.startTime = Date.now();
+    downloadProgress.errors = [];
+    downloadProgress.processedChats = 0;
+    downloadProgress.processedMessages = 0;
+    downloadProgress.totalMessages = 0;
+
+    try {
+        // Get all chats
+        const allChats = await client.getChats();
+        downloadProgress.totalChats = allChats.length;
+
+        console.log(`📊 Found ${allChats.length} chats to process`);
+
+        // Emit progress to clients
+        io.emit('download-progress', downloadProgress);
+
+        // Process each chat
+        for (let i = 0; i < allChats.length; i++) {
+            const chat = allChats[i];
+            downloadProgress.currentChat = chat.name || chat.id.user || 'Unknown';
+            downloadProgress.processedChats = i + 1;
+
+            console.log(`📱 Processing chat ${i + 1}/${allChats.length}: ${downloadProgress.currentChat}`);
+
+            try {
+                await downloadChatMessages(chat);
+            } catch (chatError) {
+                console.error(`❌ Error processing chat ${downloadProgress.currentChat}:`, chatError);
+                downloadProgress.errors.push({
+                    chat: downloadProgress.currentChat,
+                    error: chatError.message
+                });
+            }
+
+            // Update progress
+            const elapsed = Date.now() - downloadProgress.startTime;
+            const avgTimePerChat = elapsed / downloadProgress.processedChats;
+            const remainingChats = downloadProgress.totalChats - downloadProgress.processedChats;
+            downloadProgress.estimatedTimeRemaining = Math.round((avgTimePerChat * remainingChats) / 1000);
+
+            // Emit progress update
+            io.emit('download-progress', downloadProgress);
+
+            // Small delay to prevent overwhelming
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        console.log('✅ All messages download completed!');
+        console.log(`📊 Total messages processed: ${downloadProgress.processedMessages}`);
+        console.log(`⏱️ Total time: ${Math.round((Date.now() - downloadProgress.startTime) / 1000)}s`);
+
+        if (downloadProgress.errors.length > 0) {
+            console.log(`⚠️ Errors encountered: ${downloadProgress.errors.length}`);
+        }
+
+    } catch (error) {
+        console.error('❌ Fatal error during download:', error);
+        downloadProgress.errors.push({
+            chat: 'System',
+            error: error.message
+        });
+    } finally {
+        downloadProgress.isDownloading = false;
+        io.emit('download-complete', {
+            totalMessages: downloadProgress.processedMessages,
+            totalChats: downloadProgress.processedChats,
+            errors: downloadProgress.errors,
+            duration: Math.round((Date.now() - downloadProgress.startTime) / 1000)
+        });
+    }
+}
+
+// Fungsi untuk mengunduh pesan dari satu chat
+async function downloadChatMessages(chat) {
+    const chatId = chat.id._serialized;
+    const chatName = chat.name || chat.id.user || 'Unknown';
+
+    try {
+        console.log(`  📥 Fetching messages for: ${chatName}`);
+
+        // Fetch all messages from this chat (in batches)
+        let allMessages = [];
+        let hasMore = true;
+        let lastMessage = null;
+        let batchCount = 0;
+        const batchSize = 50; // Fetch 50 messages at a time
+
+        while (hasMore && batchCount < 100) { // Limit to 100 batches (5000 messages) per chat
+            try {
+                const options = { limit: batchSize };
+                if (lastMessage) {
+                    options.fromMe = undefined; // Get all messages
+                }
+
+                const messages = await chat.fetchMessages(options);
+
+                if (messages.length === 0) {
+                    hasMore = false;
+                    break;
+                }
+
+                // Process each message
+                for (const message of messages) {
+                    try {
+                        await processMessage(message, chatId);
+                        downloadProgress.processedMessages++;
+                    } catch (msgError) {
+                        console.error(`    ❌ Error processing message ${message.id.id}:`, msgError);
+                    }
+                }
+
+                allMessages = allMessages.concat(messages);
+                lastMessage = messages[messages.length - 1];
+                batchCount++;
+
+                console.log(`    📊 Batch ${batchCount}: ${messages.length} messages (Total: ${allMessages.length})`);
+
+                // Small delay between batches
+                await new Promise(resolve => setTimeout(resolve, 50));
+
+            } catch (batchError) {
+                console.error(`    ❌ Error fetching batch ${batchCount + 1}:`, batchError);
+                hasMore = false;
+            }
+        }
+
+        // Store messages in cache
+        if (allMessages.length > 0) {
+            if (!messages[chatId]) {
+                messages[chatId] = [];
+            }
+
+            // Merge with existing messages, avoiding duplicates
+            const existingIds = new Set(messages[chatId].map(msg => msg.id.id));
+            const newMessages = allMessages.filter(msg => !existingIds.has(msg.id.id));
+
+            messages[chatId] = [...messages[chatId], ...newMessages];
+
+            console.log(`  ✅ ${chatName}: ${allMessages.length} messages downloaded (${newMessages.length} new)`);
+        }
+
+        downloadProgress.totalMessages += allMessages.length;
+
+    } catch (error) {
+        console.error(`  ❌ Error downloading messages for ${chatName}:`, error);
+        throw error;
+    }
+}
+
+// Fungsi untuk memproses satu pesan
+async function processMessage(message, chatId) {
+    try {
+        // Download media if present
+        if (message.hasMedia) {
+            try {
+                const media = await message.downloadMedia();
+                if (media) {
+                    const extension = media.mimetype.split('/')[1] || 'bin';
+                    const filename = `${Date.now()}-${message.id.id}.${extension}`;
+                    const chatFolder = path.join(mediaFolder, chatId.replace(/[^a-zA-Z0-9]/g, '_'));
+                    fs.ensureDirSync(chatFolder);
+                    const filePath = path.join(chatFolder, filename);
+
+                    fs.writeFileSync(filePath, Buffer.from(media.data, 'base64'));
+                    message.mediaPath = `/media/${chatId.replace(/[^a-zA-Z0-9]/g, '_')}/${filename}`;
+                    message.mimetype = media.mimetype;
+
+                    console.log(`      💾 Media saved: ${filename}`);
+                }
+            } catch (mediaError) {
+                console.error(`      ❌ Media download failed for ${message.id.id}:`, mediaError);
+            }
+        }
+
+        // Process call logs
+        if (message.type === 'call_log') {
+            const callInfo = {
+                id: message.id.id,
+                from: message.from,
+                to: message.to,
+                timestamp: message.timestamp * 1000,
+                isVideo: message.body.includes('video') || message.body.includes('Video'),
+                fromMe: message.fromMe,
+                type: 'call',
+                duration: 0,
+                status: message.body.includes('Missed') ? 'missed' :
+                       message.fromMe ? 'outgoing' : 'incoming'
+            };
+
+            if (!callLogsCache.has(chatId)) {
+                callLogsCache.set(chatId, []);
+            }
+            callLogsCache.get(chatId).push(callInfo);
+        }
+
+        // Save message data to file for persistence
+        const chatFolder = path.join(mediaFolder, chatId.replace(/[^a-zA-Z0-9]/g, '_'));
+        fs.ensureDirSync(chatFolder);
+
+        const messageFile = path.join(chatFolder, `message_${message.id.id}.json`);
+        const messageData = {
+            id: message.id,
+            from: message.from,
+            to: message.to,
+            body: message.body,
+            timestamp: message.timestamp,
+            hasMedia: message.hasMedia,
+            type: message.type,
+            author: message.author,
+            mediaPath: message.mediaPath,
+            mimetype: message.mimetype,
+            _data: message._data
+        };
+
+        fs.writeFileSync(messageFile, JSON.stringify(messageData, null, 2));
+
+    } catch (error) {
+        console.error(`Error processing message ${message.id.id}:`, error);
+        throw error;
+    }
+}
+
 // Socket.io connection
 io.on('connection', (socket) => {
     console.log('Client terhubung');
@@ -264,6 +508,30 @@ io.on('connection', (socket) => {
             console.error('Error getting deleted media:', error);
         }
     });
+
+    // Handle manual download request
+    socket.on('start-download-all', () => {
+        console.log('Manual download all messages requested');
+        if (!downloadProgress.isDownloading) {
+            downloadAllMessages();
+        } else {
+            socket.emit('download-already-running', downloadProgress);
+        }
+    });
+
+    // Handle download progress request
+    socket.on('get-download-progress', () => {
+        socket.emit('download-progress', downloadProgress);
+    });
+
+    // Handle stop download request
+    socket.on('stop-download', () => {
+        if (downloadProgress.isDownloading) {
+            downloadProgress.isDownloading = false;
+            console.log('Download stopped by user request');
+            io.emit('download-stopped', { message: 'Download stopped by user' });
+        }
+    });
 });
 
 // WhatsApp client events
@@ -290,6 +558,12 @@ client.on('ready', async () => {
     // Ambil semua kontak
     contacts = await client.getContacts();
     io.emit('contacts', contacts);
+
+    // Auto-start downloading all messages
+    console.log('🔄 Starting automatic download of all messages...');
+    setTimeout(() => {
+        downloadAllMessages();
+    }, 5000); // Wait 5 seconds after ready
 });
 
 client.on('authenticated', () => {

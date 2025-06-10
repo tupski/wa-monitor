@@ -168,6 +168,17 @@ npm run dev  # Runs with nodemon for auto-restart
 - **Real-time Updates**: Still receive instant updates
 - **Privacy Focused**: Monitor without leaving traces
 
+### 📥 **Automatic Message Download**
+- **Complete History**: Automatically downloads ALL messages from ALL chats
+- **Background Processing**: Downloads happen automatically after WhatsApp connection
+- **Batch Processing**: Efficient batch downloading with progress tracking
+- **Media Preservation**: All media files are downloaded and preserved
+- **Progress Monitoring**: Real-time progress tracking with detailed statistics
+- **Error Handling**: Robust error handling with retry mechanisms
+- **Persistent Storage**: Messages saved to local files for permanent access
+- **Resume Capability**: Can resume interrupted downloads
+- **Memory Efficient**: Optimized memory usage during large downloads
+
 ## Fitur Utama
 
 - **Pemantauan Tanpa Membaca**: Memantau pesan WhatsApp tanpa mengubah status "dibaca" pesan

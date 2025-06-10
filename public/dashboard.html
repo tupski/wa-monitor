@@ -94,6 +94,26 @@
                     </div>
                     <h2 class="welcome-title">WA Monitor Pro</h2>
                     <p class="welcome-subtitle">Select a conversation to start monitoring</p>
+
+                    <!-- Auto-download notification -->
+                    <div class="auto-download-notification" id="auto-download-notification">
+                        <div class="notification-content">
+                            <div class="notification-icon">
+                                <i class="bi bi-cloud-download"></i>
+                            </div>
+                            <div class="notification-text">
+                                <h6>Auto-downloading all messages...</h6>
+                                <p>WA Monitor is automatically downloading all your WhatsApp messages for complete monitoring.</p>
+                                <div class="notification-progress">
+                                    <div class="progress">
+                                        <div class="progress-bar" id="auto-download-progress"></div>
+                                    </div>
+                                    <small class="progress-text" id="auto-download-text">Preparing...</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="welcome-features">
                         <div class="feature-item">
                             <i class="bi bi-shield-check"></i>
@@ -132,6 +152,9 @@
                     </div>
 
                     <div class="chat-actions">
+                        <button type="button" class="action-btn" id="download-all-btn" title="Download All Messages">
+                            <i class="bi bi-cloud-download"></i>
+                        </button>
                         <button type="button" class="action-btn" id="export-btn" title="Export Chat">
                             <i class="bi bi-download"></i>
                         </button>
@@ -330,6 +353,100 @@
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-primary" id="export-from-info">
                         <i class="bi bi-download me-1"></i>Export Chat
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Download Progress Modal -->
+    <div class="modal fade" id="downloadProgressModal" tabindex="-1" aria-labelledby="downloadProgressModalLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title" id="downloadProgressModalLabel">
+                        <i class="bi bi-cloud-download me-2"></i>Downloading All Messages
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <div class="download-progress-content">
+                        <div class="text-center mb-4">
+                            <div class="download-status-icon">
+                                <i class="bi bi-cloud-download-fill"></i>
+                            </div>
+                            <h6 class="download-status-text" id="download-status-text">Preparing download...</h6>
+                        </div>
+
+                        <div class="progress-section">
+                            <div class="progress-label">
+                                <span>Overall Progress</span>
+                                <span class="progress-percentage" id="overall-percentage">0%</span>
+                            </div>
+                            <div class="progress mb-3">
+                                <div class="progress-bar" id="overall-progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="progress-section">
+                            <div class="progress-label">
+                                <span>Current Chat</span>
+                                <span class="progress-chat" id="current-chat-name">-</span>
+                            </div>
+                            <div class="progress mb-3">
+                                <div class="progress-bar bg-info" id="chat-progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="download-stats">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="stat-item">
+                                        <div class="stat-number" id="processed-chats">0</div>
+                                        <div class="stat-label">Chats</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="stat-item">
+                                        <div class="stat-number" id="processed-messages">0</div>
+                                        <div class="stat-label">Messages</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="stat-item">
+                                        <div class="stat-number" id="download-errors">0</div>
+                                        <div class="stat-label">Errors</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="download-details mt-3">
+                            <div class="detail-item">
+                                <i class="bi bi-clock me-2"></i>
+                                <span class="detail-label">Elapsed Time:</span>
+                                <span class="detail-value" id="elapsed-time">00:00</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="bi bi-hourglass-split me-2"></i>
+                                <span class="detail-label">Estimated Remaining:</span>
+                                <span class="detail-value" id="estimated-time">Calculating...</span>
+                            </div>
+                        </div>
+
+                        <div class="download-log mt-3" id="download-log" style="display: none;">
+                            <h6>Recent Activity:</h6>
+                            <div class="log-content" id="log-content">
+                                <!-- Log entries will be added here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-danger" id="stop-download-btn">
+                        <i class="bi bi-stop-circle me-1"></i>Stop Download
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="close-download-modal" data-bs-dismiss="modal" style="display: none;">
+                        <i class="bi bi-x me-1"></i>Close
                     </button>
                 </div>
             </div>
