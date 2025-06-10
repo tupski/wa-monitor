@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Notifikasi</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #25d366;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #128c7e;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔔 Test Notifikasi Browser</h1>
+        <p>Gunakan halaman ini untuk test notifikasi browser secara terpisah.</p>
+        
+        <div id="status"></div>
+        
+        <button onclick="checkPermission()">Cek Permission</button>
+        <button onclick="requestPermission()">Minta Permission</button>
+        <button onclick="showTestNotification()">Test Notifikasi</button>
+        <button onclick="showWhatsAppNotification()">Test Notifikasi WhatsApp</button>
+        
+        <h3>Log:</h3>
+        <div id="log" style="background: #f8f9fa; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 14px; max-height: 300px; overflow-y: auto;"></div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        function checkPermission() {
+            log('Checking notification permission...');
+            
+            if ('Notification' in window) {
+                log(`Notification support: YES`);
+                log(`Current permission: ${Notification.permission}`);
+                
+                switch(Notification.permission) {
+                    case 'granted':
+                        updateStatus('✅ Notifikasi diizinkan', 'success');
+                        break;
+                    case 'denied':
+                        updateStatus('❌ Notifikasi diblokir', 'error');
+                        break;
+                    case 'default':
+                        updateStatus('⚠️ Belum ada permission', 'info');
+                        break;
+                }
+            } else {
+                log('Notification support: NO');
+                updateStatus('❌ Browser tidak mendukung notifikasi', 'error');
+            }
+        }
+
+        async function requestPermission() {
+            log('Requesting notification permission...');
+            
+            if (!('Notification' in window)) {
+                log('ERROR: Notifications not supported');
+                updateStatus('❌ Browser tidak mendukung notifikasi', 'error');
+                return;
+            }
+
+            try {
+                const permission = await Notification.requestPermission();
+                log(`Permission result: ${permission}`);
+                
+                if (permission === 'granted') {
+                    updateStatus('✅ Permission berhasil diberikan!', 'success');
+                } else {
+                    updateStatus('❌ Permission ditolak', 'error');
+                }
+            } catch (error) {
+                log(`ERROR: ${error.message}`);
+                updateStatus('❌ Error saat meminta permission', 'error');
+            }
+        }
+
+        function showTestNotification() {
+            log('Attempting to show test notification...');
+            
+            if (Notification.permission !== 'granted') {
+                log('ERROR: Permission not granted');
+                updateStatus('❌ Permission belum diberikan', 'error');
+                return;
+            }
+
+            try {
+                const notification = new Notification('Test Notifikasi', {
+                    body: 'Ini adalah test notifikasi sederhana',
+                    icon: '/favicon.ico',
+                    tag: 'test'
+                });
+
+                log('✅ Test notification created successfully');
+                updateStatus('✅ Test notifikasi berhasil ditampilkan', 'success');
+
+                notification.onclick = () => {
+                    log('Test notification clicked');
+                    notification.close();
+                };
+
+                setTimeout(() => {
+                    notification.close();
+                }, 5000);
+
+            } catch (error) {
+                log(`ERROR creating notification: ${error.message}`);
+                updateStatus('❌ Error saat membuat notifikasi', 'error');
+            }
+        }
+
+        function showWhatsAppNotification() {
+            log('Attempting to show WhatsApp-style notification...');
+            
+            if (Notification.permission !== 'granted') {
+                log('ERROR: Permission not granted');
+                updateStatus('❌ Permission belum diberikan', 'error');
+                return;
+            }
+
+            try {
+                const notification = new Notification('WhatsApp Message', {
+                    body: 'Anda menerima pesan baru dari Test Contact',
+                    icon: '/favicon.ico',
+                    badge: '/favicon.ico',
+                    tag: 'whatsapp-test',
+                    requireInteraction: false,
+                    silent: false
+                });
+
+                log('✅ WhatsApp notification created successfully');
+                updateStatus('✅ WhatsApp notifikasi berhasil ditampilkan', 'success');
+
+                notification.onclick = () => {
+                    log('WhatsApp notification clicked');
+                    window.focus();
+                    notification.close();
+                };
+
+                setTimeout(() => {
+                    notification.close();
+                }, 5000);
+
+            } catch (error) {
+                log(`ERROR creating WhatsApp notification: ${error.message}`);
+                updateStatus('❌ Error saat membuat WhatsApp notifikasi', 'error');
+            }
+        }
+
+        // Auto check permission on load
+        window.addEventListener('load', () => {
+            log('Page loaded, checking notification support...');
+            checkPermission();
+        });
+    </script>
+</body>
+</html>

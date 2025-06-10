@@ -138,10 +138,16 @@ class WAMonitorDashboard {
      * Request notification permission from user
      */
     async requestNotificationPermission() {
+        console.log('Requesting notification permission...');
+        console.log('Notification support:', 'Notification' in window);
+        console.log('Current permission:', Notification.permission);
+
         if ('Notification' in window) {
             if (Notification.permission === 'default') {
                 try {
                     const permission = await Notification.requestPermission();
+                    console.log('Permission result:', permission);
+
                     if (permission === 'granted') {
                         console.log('Notification permission granted');
                         this.showNotificationStatus('Notifikasi diaktifkan! Anda akan menerima pemberitahuan untuk pesan baru.', 'success');
@@ -159,11 +165,14 @@ class WAMonitorDashboard {
                 }
             } else if (Notification.permission === 'granted') {
                 console.log('Notification permission already granted');
+                this.showNotificationStatus('Notifikasi sudah diaktifkan sebelumnya.', 'info');
             } else {
                 console.log('Notification permission denied');
+                this.showNotificationStatus('Notifikasi diblokir. Silakan aktifkan di pengaturan browser.', 'warning');
             }
         } else {
             console.log('Notifications not supported');
+            this.showNotificationStatus('Browser tidak mendukung notifikasi.', 'warning');
         }
     }
 
@@ -459,24 +468,32 @@ class WAMonitorDashboard {
      * Setup test notification button
      */
     setupTestNotificationButton() {
-        const testBtn = document.getElementById('test-notification-btn');
-        if (testBtn) {
-            testBtn.addEventListener('click', () => {
-                console.log('Test notification button clicked');
+        // Wait for DOM to be ready
+        setTimeout(() => {
+            const testBtn = document.getElementById('test-notification-btn');
+            console.log('Looking for test notification button:', testBtn);
 
-                if (Notification.permission === 'granted') {
-                    this.showTestNotification();
-                } else if (Notification.permission === 'default') {
-                    this.requestNotificationPermission().then(() => {
-                        if (Notification.permission === 'granted') {
-                            this.showTestNotification();
-                        }
-                    });
-                } else {
-                    alert('Notifikasi diblokir. Silakan aktifkan notifikasi di pengaturan browser.');
-                }
-            });
-        }
+            if (testBtn) {
+                console.log('Test notification button found, adding event listener');
+                testBtn.addEventListener('click', () => {
+                    console.log('Test notification button clicked');
+
+                    if (Notification.permission === 'granted') {
+                        this.showTestNotification();
+                    } else if (Notification.permission === 'default') {
+                        this.requestNotificationPermission().then(() => {
+                            if (Notification.permission === 'granted') {
+                                this.showTestNotification();
+                            }
+                        });
+                    } else {
+                        alert('Notifikasi diblokir. Silakan aktifkan notifikasi di pengaturan browser.');
+                    }
+                });
+            } else {
+                console.log('Test notification button not found in DOM');
+            }
+        }, 1000);
     }
 
     /**
@@ -1483,10 +1500,16 @@ class WAMonitorDashboard {
         });
 
         this.socket.on('message_deleted', (data) => {
-            console.log('Message deleted');
+            console.log('Message deleted:', data);
+
+            // Force refresh messages for the affected chat
             if (this.state.currentChatId === data.chatId) {
+                console.log('Refreshing messages for current chat due to deleted message');
                 this.socket.emit('get-messages', this.state.currentChatId);
             }
+
+            // Also refresh chat list to update last message
+            this.refreshChatList();
         });
 
         this.socket.on('call_log', (data) => {
@@ -1636,6 +1659,7 @@ class WAMonitorDashboard {
 
             // Handle deleted messages
             if (message._isDeleted) {
+                console.log('Rendering deleted message:', message);
                 messageContent += this.renderDeletedMessage(message);
             } else if (message.body) {
                 const formattedText = this.formatWhatsAppText(message.body);
@@ -1815,6 +1839,8 @@ class WAMonitorDashboard {
      * Render deleted message
      */
     renderDeletedMessage(message) {
+        console.log('Rendering deleted message with data:', message);
+
         let messageBody = message.body;
 
         // Try to get body from _data if available
@@ -1822,27 +1848,31 @@ class WAMonitorDashboard {
             messageBody = message._data.body;
         }
 
+        console.log('Deleted message body:', messageBody);
+
         let content = '';
 
         // If message has deleted media, show it
         if (message.hasMedia && message.mediaPath) {
+            console.log('Deleted message has media:', message.mediaPath);
             content += this.renderDeletedMedia(message);
         }
 
-        if (messageBody && messageBody !== '(Pesan ini telah dihapus)') {
+        if (messageBody && messageBody !== '(Pesan ini telah dihapus)' && messageBody.trim() !== '') {
             content += `
                 <div class="message-text deleted-message">
-                    <i class="bi bi-trash"></i> This message was deleted: ${this.formatWhatsAppText(messageBody)}
+                    <i class="bi bi-trash"></i> Pesan yang dihapus: ${this.formatWhatsAppText(messageBody)}
                 </div>
             `;
         } else {
             content += `
                 <div class="message-text deleted-message">
-                    <i class="bi bi-trash"></i> This message was deleted
+                    <i class="bi bi-trash"></i> Pesan ini telah dihapus
                 </div>
             `;
         }
 
+        console.log('Deleted message content:', content);
         return content;
     }
 
