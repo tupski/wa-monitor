@@ -5,11 +5,37 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const fs = require('fs-extra');
 const path = require('path');
+const compression = require('compression');
+const helmet = require('helmet');
+const moment = require('moment');
 
 // Inisialisasi Express
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+
+// Security and performance middleware
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            imgSrc: ["'self'", "data:", "https:", "blob:"],
+            fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            connectSrc: ["'self'", "ws:", "wss:"]
+        }
+    }
+}));
+app.use(compression());
+
+// Socket.IO with CORS configuration
+const io = socketIo(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    },
+    transports: ['websocket', 'polling']
+});
 
 // Folder untuk menyimpan media
 const mediaFolder = path.join(__dirname, 'media');
@@ -19,12 +45,28 @@ fs.ensureDirSync(mediaFolder);
 app.use(express.static('public'));
 app.use('/media', express.static('media'));
 
-// Inisialisasi WhatsApp client
+// Inisialisasi WhatsApp client dengan konfigurasi yang lebih robust
 const client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({
+        dataPath: './wa-session'
+    }),
     puppeteer: {
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-gpu'
+        ],
+        timeout: 60000
+    },
+    webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
     }
 });
 
@@ -460,7 +502,9 @@ client.on('message_revoke_everyone', async (after, before) => {
 client.initialize();
 
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-    console.log(`Server berjalan di port ${PORT}`);
+    console.log(`🚀 WA Monitor Pro server running on port ${PORT}`);
+    console.log(`📱 Access the application at: http://localhost:${PORT}`);
+    console.log(`🔒 Mobile-optimized and secure monitoring system ready!`);
 });

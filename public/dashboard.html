@@ -3,108 +3,248 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Monitor - Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>WA Monitor Pro - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/emoji-toolkit@7.0.0/lib/js/joypixels.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-toolkit@7.0.0/extras/css/joypixels.min.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzYzNjZmMSIvPgo8cGF0aCBkPSJNMTYgOEMxMi42ODYzIDggMTAgMTAuNjg2MyAxMCAxNFYxOEMxMCAyMS4zMTM3IDEyLjY4NjMgMjQgMTYgMjRTMjIgMjEuMzEzNyAyMiAxOFYxNEMyMiAxMC42ODYzIDE5LjMxMzcgOCAxNiA4WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+">
+    <script src="https://cdn.jsdelivr.net/npm/emoji-toolkit@8.0.0/lib/js/joypixels.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-toolkit@8.0.0/extras/css/joypixels.min.css">
 </head>
 <body>
-    <div class="container-fluid p-0 vh-100">
-        <div class="row g-0 h-100">
-            <!-- Sidebar - Daftar Chat -->
-            <div class="col-md-4 col-lg-3 sidebar">
-                <div class="header">
-                    <div class="d-flex justify-content-between align-items-center p-3">
-                        <div class="user-info">
-                            <img src="https://placehold.co/40x40/128C7E/FFFFFF.png?text=WA" alt="Profile" class="rounded-circle">
-                            <span id="user-name">WhatsApp Monitor</span>
-                        </div>
-                        <div class="actions">
-                            <button type="button" class="btn btn-light rounded-circle" title="Refresh">
-                                <i class="bi bi-arrow-repeat"></i>
-                            </button>
-                            <button type="button" class="btn btn-light rounded-circle ms-2" id="logout-btn" title="Logout">
-                                <i class="bi bi-box-arrow-right"></i>
-                            </button>
-                        </div>
+    <!-- Mobile Header -->
+    <div class="mobile-header d-md-none">
+        <div class="d-flex justify-content-between align-items-center">
+            <button class="mobile-menu-btn" id="mobile-menu-btn">
+                <i class="bi bi-list"></i>
+            </button>
+            <div class="mobile-brand">
+                <i class="bi bi-shield-check me-2"></i>
+                <span>WA Monitor Pro</span>
+            </div>
+            <button class="mobile-logout-btn" id="mobile-logout-btn">
+                <i class="bi bi-box-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Mobile Overlay -->
+    <div class="mobile-overlay" id="mobile-overlay"></div>
+
+    <div class="dashboard-container">
+        <!-- Sidebar - Chat List -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i class="bi bi-shield-check"></i>
                     </div>
-                    <div class="search-box p-2">
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-0">
-                                <i class="bi bi-search"></i>
-                            </span>
-                            <input type="text" class="form-control border-0 bg-light" placeholder="Cari atau mulai chat baru" id="search-input">
-                        </div>
+                    <div class="user-details">
+                        <h6 class="user-name" id="user-name">WA Monitor Pro</h6>
+                        <small class="user-status">Active Monitoring</small>
                     </div>
                 </div>
+
+                <div class="sidebar-actions">
+                    <button class="action-btn" id="refresh-btn" title="Refresh">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                    <button class="action-btn d-none d-md-block" id="logout-btn" title="Logout">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="search-section">
+                <div class="search-box">
+                    <i class="bi bi-search search-icon"></i>
+                    <input type="text" class="search-input" placeholder="Search conversations..." id="search-input">
+                    <button class="search-clear d-none" id="search-clear">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="chat-list-container">
                 <div class="chat-list" id="chat-list">
-                    <!-- Chat list akan diisi oleh JavaScript -->
-                    <div class="text-center p-5">
-                        <div class="spinner-border text-success" role="status">
-                            <span class="visually-hidden">Loading...</span>
+                    <div class="loading-state">
+                        <div class="loading-spinner">
+                            <div class="spinner"></div>
                         </div>
-                        <p class="mt-2">Memuat daftar chat...</p>
+                        <p class="loading-text">Loading conversations...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Welcome Screen -->
+            <div id="welcome-screen" class="welcome-screen">
+                <div class="welcome-content">
+                    <div class="welcome-icon">
+                        <i class="bi bi-chat-dots"></i>
+                    </div>
+                    <h2 class="welcome-title">WA Monitor Pro</h2>
+                    <p class="welcome-subtitle">Select a conversation to start monitoring</p>
+                    <div class="welcome-features">
+                        <div class="feature-item">
+                            <i class="bi bi-shield-check"></i>
+                            <span>Secure Monitoring</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="bi bi-eye"></i>
+                            <span>Real-time Tracking</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="bi bi-download"></i>
+                            <span>Media Recovery</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Main Content - Chat -->
-            <div class="col-md-8 col-lg-9 main-content">
-                <div id="welcome-screen" class="welcome-screen">
-                    <div class="text-center">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/1200px-WhatsApp.svg.png" alt="WhatsApp Logo" class="logo mb-4" style="width: 100px;">
-                        <h2>WhatsApp Monitor</h2>
-                        <p class="text-muted">Pilih chat di sidebar untuk melihat pesan</p>
+            <!-- Chat Screen -->
+            <div id="chat-screen" class="chat-screen">
+                <div class="chat-header">
+                    <button type="button" class="back-btn d-md-none" id="back-btn">
+                        <i class="bi bi-arrow-left"></i>
+                    </button>
+
+                    <div class="contact-info">
+                        <div class="contact-avatar" id="chat-contact-img">
+                            <i class="bi bi-person"></i>
+                        </div>
+                        <div class="contact-details">
+                            <h6 class="contact-name" id="chat-contact-name">Contact Name</h6>
+                            <small class="contact-status" id="chat-contact-status">
+                                <i class="bi bi-circle-fill status-indicator"></i>
+                                Monitoring Active
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="chat-actions">
+                        <button type="button" class="action-btn" id="export-btn" title="Export Chat">
+                            <i class="bi bi-download"></i>
+                        </button>
+                        <button type="button" class="action-btn" id="search-messages-btn" title="Search Messages">
+                            <i class="bi bi-search"></i>
+                        </button>
+                        <div class="dropdown">
+                            <button type="button" class="action-btn" data-bs-toggle="dropdown" title="More Options">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#"><i class="bi bi-info-circle me-2"></i>Chat Info</a></li>
+                                <li><a class="dropdown-item" href="#"><i class="bi bi-archive me-2"></i>Archive</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash me-2"></i>Clear History</a></li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
 
-                <div id="chat-screen" class="chat-screen d-none">
-                    <div class="chat-header">
-                        <div class="d-flex align-items-center p-3">
-                            <img src="https://placehold.co/40x40/128C7E/FFFFFF.png?text=WA" alt="Contact" class="rounded-circle me-3" id="chat-contact-img">
-                            <div>
-                                <h6 class="mb-0" id="chat-contact-name">Nama Kontak</h6>
-                                <small class="text-muted" id="chat-contact-status">online</small>
-                            </div>
+                <div class="chat-body" id="chat-body">
+                    <div class="loading-state">
+                        <div class="loading-spinner">
+                            <div class="spinner"></div>
                         </div>
-                    </div>
-
-                    <div class="chat-body" id="chat-body">
-                        <!-- Pesan akan diisi oleh JavaScript -->
-                        <div class="text-center p-5">
-                            <div class="spinner-border text-success" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p class="mt-2">Memuat pesan...</p>
-                        </div>
+                        <p class="loading-text">Loading messages...</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal untuk menampilkan media -->
+    <!-- Media Modal -->
     <div class="modal fade" id="mediaModal" tabindex="-1" aria-labelledby="mediaModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="mediaModalLabel">Media</h5>
+                <div class="modal-header border-0">
+                    <h5 class="modal-title" id="mediaModalLabel">
+                        <i class="bi bi-image me-2"></i>Media Preview
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body text-center" id="mediaModalBody">
-                    <!-- Media content will be inserted here -->
+                <div class="modal-body text-center p-4" id="mediaModalBody">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                    </div>
+                    <p class="loading-text">Loading media...</p>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-                    <a href="#" class="btn btn-primary" id="downloadMediaBtn" download>Unduh</a>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x me-1"></i>Close
+                    </button>
+                    <a href="#" class="btn btn-primary" id="downloadMediaBtn" download>
+                        <i class="bi bi-download me-1"></i>Download
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Export Modal -->
+    <div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title" id="exportModalLabel">
+                        <i class="bi bi-download me-2"></i>Export Chat
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="export-options">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="exportFormat" id="exportJSON" value="json" checked>
+                            <label class="form-check-label" for="exportJSON">
+                                <i class="bi bi-file-earmark-code me-2"></i>JSON Format
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="exportFormat" id="exportTXT" value="txt">
+                            <label class="form-check-label" for="exportTXT">
+                                <i class="bi bi-file-earmark-text me-2"></i>Text Format
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="exportFormat" id="exportHTML" value="html">
+                            <label class="form-check-label" for="exportHTML">
+                                <i class="bi bi-file-earmark-richtext me-2"></i>HTML Format
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label for="exportRange" class="form-label">Date Range</label>
+                        <select class="form-select" id="exportRange">
+                            <option value="all">All Messages</option>
+                            <option value="today">Today</option>
+                            <option value="week">Last 7 Days</option>
+                            <option value="month">Last 30 Days</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="startExport">
+                        <i class="bi bi-download me-1"></i>Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/main.js"></script>
 </body>

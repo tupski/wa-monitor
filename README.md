@@ -1,8 +1,102 @@
-# WhatsApp Monitor
+# 🚀 WA Monitor Pro v2.0 - Advanced WhatsApp Monitoring System
 
-Aplikasi pemantauan WhatsApp yang memungkinkan Anda memantau pesan WhatsApp tanpa mengubah status **"dibaca"** pesan tersebut. Dibangun dengan whatsapp-web.js dan Bootstrap 5.
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/your-repo/wa-monitor-pro)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node.js-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
+[![Mobile First](https://img.shields.io/badge/design-mobile--first-purple.svg)](#mobile-first-design)
 
-![WhatsApp Monitor Screenshot](https://placehold.co/600x400/128C7E/FFFFFF.png?text=WhatsApp+Monitor)
+> **Advanced WhatsApp monitoring system with mobile-first design, real-time message tracking, and deleted message recovery.**
+
+![WA Monitor Pro Screenshot](https://placehold.co/800x500/6366f1/FFFFFF.png?text=WA+Monitor+Pro+v2.0)
+
+## ✨ What's New in v2.0
+
+### 🔄 **Complete Library Upgrades**
+- **Bootstrap**: 5.3.6 → 5.3.3+ (Latest)
+- **Socket.IO**: 4.8.1+ (Latest with enhanced real-time capabilities)
+- **Express**: 4.19.2+ (Latest stable)
+- **WhatsApp-Web.js**: 1.27.0+ (Latest with improved stability)
+- **Security**: Added Helmet.js and Compression middleware
+- **Performance**: Enhanced with modern optimization techniques
+
+### 📱 **Mobile-First Responsive Design**
+- **Completely redesigned UI** with mobile-first approach
+- **Touch-friendly interface** optimized for smartphones and tablets
+- **Responsive sidebar** with mobile drawer navigation
+- **Adaptive layouts** that work seamlessly across all screen sizes
+- **PWA capabilities** with offline support and app-like experience
+
+### 🎨 **Visual Differentiation from WhatsApp Web**
+- **Custom color scheme** with modern gradient design (Purple/Indigo theme)
+- **Unique UI components** that clearly distinguish from original WhatsApp Web
+- **Enhanced typography** with Inter font family
+- **Modern card-based layouts** with subtle shadows and animations
+- **Professional monitoring interface** suitable for business use
+
+### 🔧 **Enhanced Features**
+- **Real-time message monitoring** with instant updates
+- **Deleted message recovery** with persistent storage
+- **Media download and preview** with automatic handling
+- **Advanced search functionality** across conversations and messages
+- **Export capabilities** (JSON, TXT, HTML formats)
+- **Secure authentication** with enhanced session management
+- **Performance optimizations** for handling large message volumes
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js >= 18.0.0
+- npm or yarn package manager
+- Chrome/Chromium browser (for WhatsApp Web automation)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-repo/wa-monitor-pro.git
+   cd wa-monitor-pro
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Start the application**
+   ```bash
+   npm start
+   ```
+
+4. **Access the application**
+   - Open your browser and navigate to `http://localhost:3001`
+   - Scan the QR code with your WhatsApp mobile app
+   - Start monitoring conversations in real-time
+
+### Development Mode
+```bash
+npm run dev  # Runs with nodemon for auto-restart
+```
+
+## 📱 Mobile-First Design
+
+### Desktop Experience
+- **Sidebar navigation** with conversation list
+- **Main content area** with message display
+- **Advanced features** like export and search
+- **Professional monitoring dashboard**
+
+### Mobile Experience
+- **Collapsible sidebar** with overlay navigation
+- **Touch-optimized controls** and gestures
+- **Responsive message bubbles** and media previews
+- **Mobile-friendly modals** and action sheets
+- **PWA installation** for app-like experience
+
+### Tablet Experience
+- **Adaptive layout** that utilizes available screen space
+- **Enhanced touch targets** for better usability
+- **Optimized typography** for comfortable reading
+- **Balanced information density**
 
 ## Fitur Utama
 
