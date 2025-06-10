@@ -3012,28 +3012,78 @@ class WAMonitorDashboard {
     /**
      * Handle status stories response
      */
-    handleStatusStories(stories) {
-        const storiesContainer = document.getElementById('status-stories');
-        if (!storiesContainer) return;
+    handleStatusStories(statusData) {
+        console.log('Status stories received:', statusData);
 
-        if (stories.length === 0) {
-            storiesContainer.innerHTML = '<p class="text-muted text-center">No recent status updates</p>';
-            return;
+        const recentContainer = document.getElementById('recent-status-stories');
+        const viewedContainer = document.getElementById('viewed-status-stories');
+        const recentSection = document.getElementById('recent-updates-section');
+        const viewedSection = document.getElementById('viewed-updates-section');
+
+        if (!recentContainer || !viewedContainer) return;
+
+        // Handle recent updates
+        if (statusData.recentUpdates && statusData.recentUpdates.length > 0) {
+            let recentItems = '';
+            statusData.recentUpdates.forEach(story => {
+                const timeAgo = this.getTimeAgo(story.lastUpdate);
+                const profilePic = story.profilePic ?
+                    `<img src="${story.profilePic}" alt="${story.name}">` :
+                    `<div class="status-avatar-placeholder">${story.name.charAt(0).toUpperCase()}</div>`;
+
+                recentItems += `
+                    <div class="status-story-item" data-contact-id="${story.id}" onclick="waMonitor.viewContactStatus('${story.id}', '${story.name}')">
+                        <div class="status-story-avatar has-status">
+                            ${profilePic}
+                            <div class="status-indicator"></div>
+                        </div>
+                        <div class="status-story-info">
+                            <div class="status-story-name">${story.name}</div>
+                            <div class="status-story-time">${timeAgo}</div>
+                            <div class="status-story-count">${story.statusCount} update${story.statusCount > 1 ? 's' : ''}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            recentContainer.innerHTML = recentItems;
+            recentSection.style.display = 'block';
+        } else {
+            recentContainer.innerHTML = `
+                <div class="no-status">
+                    <i class="bi bi-circle-fill"></i>
+                    <p>No recent status updates</p>
+                </div>
+            `;
         }
 
-        const storyItems = stories.map(story => `
-            <div class="status-story" data-story-id="${story.id}">
-                <div class="status-story-avatar">
-                    ${story.profilePic ?
-                        `<img src="${story.profilePic}" alt="${story.name}" class="profile-picture">` :
-                        '<i class="bi bi-person"></i>'
-                    }
-                </div>
-                <div class="status-story-name">${story.name}</div>
-            </div>
-        `).join('');
+        // Handle viewed updates
+        if (statusData.viewedUpdates && statusData.viewedUpdates.length > 0) {
+            let viewedItems = '';
+            statusData.viewedUpdates.forEach(story => {
+                const timeAgo = this.getTimeAgo(story.lastUpdate);
+                const profilePic = story.profilePic ?
+                    `<img src="${story.profilePic}" alt="${story.name}">` :
+                    `<div class="status-avatar-placeholder">${story.name.charAt(0).toUpperCase()}</div>`;
 
-        storiesContainer.innerHTML = storyItems;
+                viewedItems += `
+                    <div class="status-story-item" data-contact-id="${story.id}" onclick="waMonitor.viewContactStatus('${story.id}', '${story.name}')">
+                        <div class="status-story-avatar has-status viewed">
+                            ${profilePic}
+                            <div class="status-indicator viewed"></div>
+                        </div>
+                        <div class="status-story-info">
+                            <div class="status-story-name">${story.name}</div>
+                            <div class="status-story-time">${timeAgo}</div>
+                            <div class="status-story-count">${story.statusCount} update${story.statusCount > 1 ? 's' : ''}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            viewedContainer.innerHTML = viewedItems;
+            viewedSection.style.display = 'block';
+        } else {
+            viewedSection.style.display = 'none';
+        }
     }
 
     /**
@@ -3123,6 +3173,7 @@ class WAMonitorDashboard {
      * Mark status as viewed
      */
     markStatusAsViewed(contactId) {
+        // Mark in chat list
         const chatAvatar = document.querySelector(`[data-chat-id="${contactId}"] .chat-avatar`);
         if (chatAvatar && chatAvatar.classList.contains('has-status')) {
             chatAvatar.classList.add('viewed');
@@ -3131,6 +3182,23 @@ class WAMonitorDashboard {
                 statusIndicator.classList.add('viewed');
             }
         }
+
+        // Mark in status modal
+        const statusStoryItem = document.querySelector(`[data-contact-id="${contactId}"]`);
+        if (statusStoryItem) {
+            const statusAvatar = statusStoryItem.querySelector('.status-story-avatar');
+            const statusIndicatorModal = statusStoryItem.querySelector('.status-indicator');
+
+            if (statusAvatar) {
+                statusAvatar.classList.add('viewed');
+            }
+            if (statusIndicatorModal) {
+                statusIndicatorModal.classList.add('viewed');
+            }
+        }
+
+        // Send to server
+        this.socket.emit('mark-status-viewed', contactId);
     }
 
     /**

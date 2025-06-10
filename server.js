@@ -111,6 +111,12 @@ let statusTracker = {
     lastStatusCheck: null
 };
 
+// Call logs tracking
+let callLogsTracker = {
+    calls: new Map(), // callId -> call object
+    lastUpdate: null
+};
+
 // Fungsi untuk mengunduh semua pesan dari semua chat
 async function downloadAllMessages() {
     if (downloadProgress.isDownloading) {
@@ -664,8 +670,11 @@ io.on('connection', (socket) => {
             console.log('Getting status stories...');
 
             // Get status stories from contacts
-            const stories = [];
             const allChats = await client.getChats();
+
+            // Create categories for status
+            const recentUpdates = [];
+            const viewedUpdates = [];
 
             for (const chat of allChats) {
                 try {
@@ -676,23 +685,34 @@ io.on('connection', (socket) => {
                     const hasRecentActivity = chat.lastMessage &&
                         (Date.now() - chat.lastMessage.timestamp * 1000) < 24 * 60 * 60 * 1000; // 24 hours
 
-                    if (hasRecentActivity && Math.random() > 0.7) { // Simulate 30% chance of having status
+                    if (hasRecentActivity && Math.random() > 0.6) { // Simulate 40% chance of having status
                         const contactInfo = statusTracker.contacts.get(contactId) || {};
+                        const isViewed = Math.random() > 0.5; // 50% chance of being viewed
 
-                        stories.push({
+                        const statusStory = {
                             id: contactId,
                             name: chat.name || chat.id.user,
                             profilePic: contactInfo.profilePic || null,
                             hasStatus: true,
                             lastUpdate: Date.now() - Math.random() * 12 * 60 * 60 * 1000, // Random time in last 12 hours
-                            isViewed: false
-                        });
+                            isViewed: isViewed,
+                            statusCount: Math.floor(Math.random() * 3) + 1, // 1-3 status updates
+                            statusType: ['text', 'image', 'video'][Math.floor(Math.random() * 3)]
+                        };
+
+                        // Categorize status
+                        if (isViewed) {
+                            viewedUpdates.push(statusStory);
+                        } else {
+                            recentUpdates.push(statusStory);
+                        }
 
                         // Update status tracker
                         statusTracker.contacts.set(contactId, {
                             ...contactInfo,
                             hasStatus: true,
-                            lastUpdate: Date.now()
+                            lastUpdate: Date.now(),
+                            isViewed: isViewed
                         });
                     }
                 } catch (contactError) {
@@ -700,12 +720,36 @@ io.on('connection', (socket) => {
                 }
             }
 
-            socket.emit('status-stories', stories);
-            console.log(`Status stories sent: ${stories.length} contacts with status`);
+            // Sort by last update (newest first)
+            recentUpdates.sort((a, b) => b.lastUpdate - a.lastUpdate);
+            viewedUpdates.sort((a, b) => b.lastUpdate - a.lastUpdate);
+
+            const statusResponse = {
+                recentUpdates,
+                viewedUpdates,
+                totalCount: recentUpdates.length + viewedUpdates.length
+            };
+
+            socket.emit('status-stories', statusResponse);
+            console.log(`Status stories sent: ${recentUpdates.length} recent, ${viewedUpdates.length} viewed`);
 
         } catch (error) {
             console.error('Error getting status stories:', error);
-            socket.emit('status-stories', []);
+            socket.emit('status-stories', { recentUpdates: [], viewedUpdates: [], totalCount: 0 });
+        }
+    });
+
+    // Handle mark status as viewed
+    socket.on('mark-status-viewed', (contactId) => {
+        try {
+            const contactInfo = statusTracker.contacts.get(contactId);
+            if (contactInfo) {
+                contactInfo.isViewed = true;
+                statusTracker.contacts.set(contactId, contactInfo);
+                console.log(`Status marked as viewed for: ${contactId}`);
+            }
+        } catch (error) {
+            console.error('Error marking status as viewed:', error);
         }
     });
 
@@ -772,6 +816,31 @@ io.on('connection', (socket) => {
             downloadProgress.isDownloading = false;
             console.log('Download stopped by user request');
             io.emit('download-stopped', { message: 'Download stopped by user' });
+        }
+    });
+
+    // Handle check auth status
+    socket.on('check-auth-status', () => {
+        const isAuthenticated = client && client.info && client.info.wid;
+        console.log(`Auth status check: ${isAuthenticated ? 'authenticated' : 'not authenticated'}`);
+        socket.emit('auth-status', isAuthenticated);
+    });
+
+    // Handle get call logs
+    socket.on('get-call-logs', (chatId) => {
+        try {
+            if (chatId) {
+                // Get call logs for specific chat
+                const chatCallLogs = callLogsCache.get(chatId) || [];
+                socket.emit('call-logs', { chatId, callLogs: chatCallLogs });
+            } else {
+                // Get all call logs
+                const allCallLogs = Array.from(callLogsTracker.calls.values());
+                socket.emit('all-call-logs', allCallLogs);
+            }
+        } catch (error) {
+            console.error('Error getting call logs:', error);
+            socket.emit('call-logs', { chatId, callLogs: [] });
         }
     });
 });
@@ -1086,38 +1155,56 @@ client.on('message_revoke_everyone', async (after, before) => {
 
 // Event untuk menangani panggilan (call logs)
 client.on('call', async (call) => {
-    console.log('Panggilan terdeteksi:', call);
+    console.log('📞 Call detected:', {
+        id: call.id,
+        isGroup: call.isGroup,
+        isVideo: call.isVideo,
+        participants: call.participants,
+        timestamp: call.timestamp,
+        webClientShouldHandle: call.webClientShouldHandle
+    });
 
     try {
         const callInfo = {
-            id: call.id || `call_${Date.now()}`,
-            from: call.from,
-            to: call.to,
-            timestamp: Date.now(),
-            isVideo: call.isVideo || false,
+            id: call.id,
             isGroup: call.isGroup || false,
-            fromMe: call.fromMe || false,
-            type: 'call',
-            duration: call.duration || 0,
-            status: call.status || 'unknown' // incoming, outgoing, missed
+            isVideo: call.isVideo || false,
+            participants: call.participants || [],
+            timestamp: call.timestamp || Date.now(),
+            webClientShouldHandle: call.webClientShouldHandle || false,
+            status: 'incoming', // Default status
+            duration: 0,
+            createdAt: Date.now()
         };
 
-        // Simpan ke cache call logs
-        const chatId = call.from;
+        // Store in call logs tracker
+        callLogsTracker.calls.set(call.id, callInfo);
+        callLogsTracker.lastUpdate = Date.now();
+
+        // Also store in legacy cache for backward compatibility
+        const chatId = call.participants && call.participants.length > 0 ?
+                      call.participants[0] :
+                      `call_${call.id}`;
+
         if (!callLogsCache.has(chatId)) {
             callLogsCache.set(chatId, []);
         }
         callLogsCache.get(chatId).push(callInfo);
 
-        // Emit ke client
+        // Emit to all clients
+        io.emit('call-received', callInfo);
         io.emit('call_log', {
             chatId: chatId,
             callInfo: callInfo
         });
 
-        console.log(`Call log disimpan untuk chat ${chatId}`);
+        console.log(`📞 Call log stored: ${call.id} (${call.isVideo ? 'Video' : 'Voice'} ${call.isGroup ? 'Group' : 'Individual'})`);
+
+        // Auto-reject call if needed (uncomment to enable)
+        // await call.reject();
+
     } catch (error) {
-        console.error('Error handling call:', error);
+        console.error('📞 Error handling call:', error);
     }
 });
 

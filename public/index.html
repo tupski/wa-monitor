@@ -274,7 +274,13 @@
                 this.loadingElement = document.getElementById('loading');
 
                 this.initializeEventListeners();
+                this.checkAuthStatus();
                 this.showInitialLoading();
+            }
+
+            checkAuthStatus() {
+                // Check if already authenticated
+                this.socket.emit('check-auth-status');
             }
 
             showInitialLoading() {
@@ -346,6 +352,17 @@
             }
 
             initializeEventListeners() {
+                // Check auth status response
+                this.socket.on('auth-status', (isAuthenticated) => {
+                    if (isAuthenticated) {
+                        console.log('Already authenticated, redirecting...');
+                        this.showStatus('Already logged in! Redirecting to dashboard...', 'success');
+                        setTimeout(() => {
+                            window.location.href = '/dashboard.html';
+                        }, 1000);
+                    }
+                });
+
                 // Socket event listeners
                 this.socket.on('qr', (qrDataUrl) => {
                     console.log('QR code received');
