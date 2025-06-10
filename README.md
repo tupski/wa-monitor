@@ -105,7 +105,7 @@ npm run dev  # Runs with nodemon for auto-restart
 - **Optimized typography** for comfortable reading
 - **Balanced information density**
 
-## 🆕 Latest Features (v2.0 Complete Enhanced Edition)
+## 🆕 Latest Features (v2.1 Complete Profile & Media Edition)
 
 ### 📞 **Call Logs & Phone Tracking**
 - **Automatic Call Detection**: Detects and logs all incoming/outgoing calls
@@ -178,6 +178,35 @@ npm run dev  # Runs with nodemon for auto-restart
 - **Persistent Storage**: Messages saved to local files for permanent access
 - **Resume Capability**: Can resume interrupted downloads
 - **Memory Efficient**: Optimized memory usage during large downloads
+
+### 👤 **Profile Pictures & Contact Details**
+- **Profile Picture Display**: Automatic download and display of contact/group profile pictures
+- **Contact Information**: Complete contact details including name, number, status, and about
+- **Group Information**: Detailed group info with participants, admins, creation date, and description
+- **Status Display**: View contact status/about without marking as read
+- **Business Indicators**: Visual indicators for business and enterprise accounts
+- **Contact Type Detection**: Automatic detection of contact types (individual, group, business)
+- **Profile Picture Caching**: Local caching of profile pictures for faster loading
+- **Real-time Updates**: Profile pictures and status updates in real-time
+
+### 📱 **Status Monitoring (Stealth Mode)**
+- **My Status Display**: View your own status and profile information
+- **Status Stories**: Monitor status updates from contacts (when available)
+- **Stealth Viewing**: View status without marking as read or seen
+- **Status History**: Track status changes over time
+- **Profile Picture Updates**: Monitor profile picture changes
+- **Privacy Protection**: No read receipts sent when viewing status
+- **Real-time Monitoring**: Instant updates when status changes occur
+
+### 🎵 **Enhanced Media Players**
+- **Advanced Audio Player**: Custom audio player with waveform visualization
+- **Enhanced Video Player**: Custom video controls with progress bar and fullscreen
+- **Playback Controls**: Play, pause, seek, volume control, and download options
+- **Progress Tracking**: Visual progress bars for audio and video playback
+- **Multiple Format Support**: Support for all WhatsApp media formats
+- **Download Integration**: Direct download buttons for all media files
+- **Responsive Design**: Optimized for both desktop and mobile devices
+- **Auto-pause**: Automatic pausing of other media when starting new playback
 
 ## Fitur Utama
 

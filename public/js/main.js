@@ -69,7 +69,14 @@ class WAMonitorDashboard {
             downloadAllBtn: document.getElementById('download-all-btn'),
             downloadProgressModal: document.getElementById('downloadProgressModal'),
             stopDownloadBtn: document.getElementById('stop-download-btn'),
-            closeDownloadModal: document.getElementById('close-download-modal')
+            closeDownloadModal: document.getElementById('close-download-modal'),
+
+            // Contact details and status
+            contactDetailsBtn: document.getElementById('contact-details-btn'),
+            contactDetailsModal: document.getElementById('contactDetailsModal'),
+            statusBtn: document.getElementById('status-btn'),
+            statusModal: document.getElementById('statusModal'),
+            messageContactBtn: document.getElementById('message-contact-btn')
         };
 
         // Application state
@@ -94,7 +101,9 @@ class WAMonitorDashboard {
             media: new bootstrap.Modal(this.elements.mediaModal),
             export: new bootstrap.Modal(this.elements.exportModal),
             chatInfo: new bootstrap.Modal(this.elements.chatInfoModal),
-            downloadProgress: new bootstrap.Modal(this.elements.downloadProgressModal)
+            downloadProgress: new bootstrap.Modal(this.elements.downloadProgressModal),
+            contactDetails: new bootstrap.Modal(this.elements.contactDetailsModal),
+            status: new bootstrap.Modal(this.elements.statusModal)
         };
 
         // Initialize the application
@@ -244,6 +253,28 @@ class WAMonitorDashboard {
         if (this.elements.closeDownloadModal) {
             this.elements.closeDownloadModal.addEventListener('click', () => {
                 this.modals.downloadProgress.hide();
+            });
+        }
+
+        // Contact details
+        if (this.elements.contactDetailsBtn) {
+            this.elements.contactDetailsBtn.addEventListener('click', () => {
+                this.showContactDetails();
+            });
+        }
+
+        // Status button
+        if (this.elements.statusBtn) {
+            this.elements.statusBtn.addEventListener('click', () => {
+                this.showStatus();
+            });
+        }
+
+        // Message contact button
+        if (this.elements.messageContactBtn) {
+            this.elements.messageContactBtn.addEventListener('click', () => {
+                this.modals.contactDetails.hide();
+                // Focus on current chat if it's the same contact
             });
         }
 
@@ -1093,6 +1124,25 @@ class WAMonitorDashboard {
             this.updateDownloadProgress(progress);
         });
 
+        // Profile picture events
+        this.socket.on('profile-picture', (data) => {
+            this.handleProfilePicture(data);
+        });
+
+        // Contact info events
+        this.socket.on('contact-info', (contactInfo) => {
+            this.handleContactInfo(contactInfo);
+        });
+
+        // Status events
+        this.socket.on('status-stories', (stories) => {
+            this.handleStatusStories(stories);
+        });
+
+        this.socket.on('my-status', (myStatus) => {
+            this.handleMyStatus(myStatus);
+        });
+
         this.socket.on('media-downloaded', (data) => {
             this.handleMediaDownloaded(data);
         });
@@ -1248,17 +1298,36 @@ class WAMonitorDashboard {
                     </div>
                 `;
             } else if (mediaType === 'audio') {
+                const audioId = `audio_${messageId}_${Date.now()}`;
                 return `
                     <div class="message-media" data-message-id="${messageId}" data-chat-id="${chatId}">
-                        <div class="audio-player">
-                            <div class="call-icon">
-                                <i class="bi bi-music-note"></i>
+                        <div class="audio-player enhanced" data-audio-id="${audioId}">
+                            <div class="audio-controls">
+                                <button class="audio-play-btn" data-audio-id="${audioId}">
+                                    <i class="bi bi-play-fill"></i>
+                                </button>
+                                <div class="audio-info">
+                                    <div class="audio-waveform">
+                                        <div class="waveform-bars">
+                                            ${Array.from({length: 20}, () => '<div class="waveform-bar"></div>').join('')}
+                                        </div>
+                                    </div>
+                                    <div class="audio-meta">
+                                        <span class="audio-duration" id="duration_${audioId}">0:00</span>
+                                        <span class="audio-size">${this.getFileSize(message.mediaPath)}</span>
+                                    </div>
+                                </div>
+                                <button class="audio-download-btn" data-url="${message.mediaPath}" title="Download">
+                                    <i class="bi bi-download"></i>
+                                </button>
                             </div>
-                            <audio controls preload="metadata">
+                            <div class="audio-progress">
+                                <div class="audio-progress-bar" id="progress_${audioId}"></div>
+                            </div>
+                            <audio preload="metadata" id="${audioId}" style="display: none;">
                                 <source src="${message.mediaPath}" type="${message.mimetype}">
-                                Your browser does not support the audio tag.
+                                Your browser does not support the audio element.
                             </audio>
-                            <div class="media-info">Audio • ${this.getFileSize(message.mediaPath)}</div>
                         </div>
                     </div>
                 `;
@@ -1519,6 +1588,124 @@ class WAMonitorDashboard {
 
                 if (messageId && chatId) {
                     this.handleMediaClick(messageId, chatId);
+                }
+            });
+        });
+
+        // Setup enhanced audio players
+        this.setupAudioPlayers();
+
+        // Setup enhanced video players
+        this.setupVideoPlayers();
+
+        // Setup download buttons
+        this.setupDownloadButtons();
+    }
+
+    /**
+     * Setup enhanced audio players
+     */
+    setupAudioPlayers() {
+        document.querySelectorAll('.audio-player.enhanced').forEach(player => {
+            const audioId = player.dataset.audioId;
+            const audio = document.getElementById(audioId);
+            const playBtn = player.querySelector('.audio-play-btn');
+            const progressBar = player.querySelector('.audio-progress-bar');
+            const durationSpan = player.querySelector('.audio-duration');
+            const progressContainer = player.querySelector('.audio-progress');
+
+            if (!audio || !playBtn) return;
+
+            // Load metadata
+            audio.addEventListener('loadedmetadata', () => {
+                if (durationSpan) {
+                    durationSpan.textContent = this.formatDuration(audio.duration);
+                }
+            });
+
+            // Play/pause button
+            playBtn.addEventListener('click', () => {
+                if (audio.paused) {
+                    // Pause all other audio players
+                    document.querySelectorAll('audio').forEach(otherAudio => {
+                        if (otherAudio !== audio && !otherAudio.paused) {
+                            otherAudio.pause();
+                        }
+                    });
+
+                    audio.play();
+                    playBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
+                    playBtn.classList.add('playing');
+                    player.classList.add('playing');
+                } else {
+                    audio.pause();
+                    playBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+                    playBtn.classList.remove('playing');
+                    player.classList.remove('playing');
+                }
+            });
+
+            // Progress update
+            audio.addEventListener('timeupdate', () => {
+                if (audio.duration) {
+                    const progress = (audio.currentTime / audio.duration) * 100;
+                    if (progressBar) {
+                        progressBar.style.width = `${progress}%`;
+                    }
+                    if (durationSpan) {
+                        durationSpan.textContent = this.formatDuration(audio.currentTime);
+                    }
+                }
+            });
+
+            // Progress bar click
+            if (progressContainer) {
+                progressContainer.addEventListener('click', (e) => {
+                    const rect = progressContainer.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const width = rect.width;
+                    const percentage = clickX / width;
+                    audio.currentTime = percentage * audio.duration;
+                });
+            }
+
+            // Audio ended
+            audio.addEventListener('ended', () => {
+                playBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+                playBtn.classList.remove('playing');
+                player.classList.remove('playing');
+                if (progressBar) {
+                    progressBar.style.width = '0%';
+                }
+                if (durationSpan) {
+                    durationSpan.textContent = this.formatDuration(audio.duration);
+                }
+            });
+        });
+    }
+
+    /**
+     * Setup enhanced video players
+     */
+    setupVideoPlayers() {
+        document.querySelectorAll('video').forEach(video => {
+            // Add enhanced controls if not already present
+            if (!video.closest('.video-player.enhanced')) {
+                this.enhanceVideoPlayer(video);
+            }
+        });
+    }
+
+    /**
+     * Setup download buttons
+     */
+    setupDownloadButtons() {
+        document.querySelectorAll('.audio-download-btn, .video-download-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const url = btn.dataset.url;
+                if (url) {
+                    this.downloadFile(url);
                 }
             });
         });
@@ -2439,6 +2626,348 @@ class WAMonitorDashboard {
             const minutes = Math.floor((seconds % 3600) / 60);
             return `${hours}:${minutes.toString().padStart(2, '0')}:00`;
         }
+    }
+
+    /**
+     * Show contact details
+     */
+    showContactDetails() {
+        if (!this.state.currentChatId) {
+            console.log('No chat selected');
+            return;
+        }
+
+        // Request contact info
+        this.socket.emit('get-contact-info', this.state.currentChatId);
+
+        // Request profile picture
+        this.socket.emit('get-profile-picture', this.state.currentChatId);
+
+        // Show modal
+        this.modals.contactDetails.show();
+    }
+
+    /**
+     * Show status modal
+     */
+    showStatus() {
+        // Request my status
+        this.socket.emit('get-my-status');
+
+        // Request status stories
+        this.socket.emit('get-status-stories');
+
+        // Show modal
+        this.modals.status.show();
+    }
+
+    /**
+     * Handle profile picture response
+     */
+    handleProfilePicture(data) {
+        const { contactId, profilePicUrl } = data;
+
+        // Update chat header avatar
+        if (contactId === this.state.currentChatId && this.elements.chatContactImg) {
+            if (profilePicUrl) {
+                this.elements.chatContactImg.innerHTML = `<img src="${profilePicUrl}" alt="Profile" class="profile-picture">`;
+            }
+        }
+
+        // Update contact details modal avatar
+        const contactDetailsAvatar = document.getElementById('contact-details-avatar');
+        if (contactDetailsAvatar && profilePicUrl) {
+            contactDetailsAvatar.innerHTML = `<img src="${profilePicUrl}" alt="Profile" class="profile-picture">`;
+        }
+
+        // Update chat list avatar
+        const chatItems = document.querySelectorAll(`[data-chat-id="${contactId}"] .chat-item-avatar`);
+        chatItems.forEach(avatar => {
+            if (profilePicUrl) {
+                avatar.innerHTML = `<img src="${profilePicUrl}" alt="Profile" class="profile-picture">`;
+            }
+        });
+    }
+
+    /**
+     * Handle contact info response
+     */
+    handleContactInfo(contactInfo) {
+        if (contactInfo.error) {
+            console.error('Error getting contact info:', contactInfo.error);
+            return;
+        }
+
+        // Update contact details modal
+        this.updateContactDetailsModal(contactInfo);
+    }
+
+    /**
+     * Update contact details modal
+     */
+    updateContactDetailsModal(contactInfo) {
+        // Update name and number
+        const nameElement = document.getElementById('contact-details-name');
+        const numberElement = document.getElementById('contact-details-number');
+
+        if (nameElement) {
+            nameElement.textContent = contactInfo.name || contactInfo.number || 'Unknown';
+        }
+
+        if (numberElement) {
+            numberElement.textContent = contactInfo.number || 'Unknown number';
+        }
+
+        // Update about/status
+        const aboutElement = document.getElementById('contact-about-text');
+        if (aboutElement) {
+            if (contactInfo.about || contactInfo.statusMessage) {
+                aboutElement.textContent = contactInfo.about || contactInfo.statusMessage;
+                aboutElement.className = 'about-text';
+            } else {
+                aboutElement.textContent = 'No status available';
+                aboutElement.className = 'about-text about-empty';
+            }
+        }
+
+        // Update status badges
+        this.updateStatusBadges(contactInfo);
+
+        // Update contact info grid
+        this.updateContactInfoGrid(contactInfo);
+
+        // Update group info if it's a group
+        if (contactInfo.isGroup && contactInfo.groupMetadata) {
+            this.updateGroupInfo(contactInfo.groupMetadata);
+        } else {
+            const groupSection = document.getElementById('group-info-section');
+            if (groupSection) {
+                groupSection.style.display = 'none';
+            }
+        }
+    }
+
+    /**
+     * Update status badges
+     */
+    updateStatusBadges(contactInfo) {
+        const badgesContainer = document.getElementById('contact-status-badges');
+        if (!badgesContainer) return;
+
+        const badges = [];
+
+        if (contactInfo.isMyContact) {
+            badges.push('<span class="status-badge">Contact</span>');
+        }
+
+        if (contactInfo.isBusiness) {
+            badges.push('<span class="status-badge">Business</span>');
+        }
+
+        if (contactInfo.isEnterprise) {
+            badges.push('<span class="status-badge">Enterprise</span>');
+        }
+
+        if (contactInfo.isGroup) {
+            badges.push('<span class="status-badge">Group</span>');
+        }
+
+        if (contactInfo.isBlocked) {
+            badges.push('<span class="status-badge">Blocked</span>');
+        }
+
+        badgesContainer.innerHTML = badges.join('');
+    }
+
+    /**
+     * Update contact info grid
+     */
+    updateContactInfoGrid(contactInfo) {
+        const gridContainer = document.getElementById('contact-info-grid');
+        if (!gridContainer) return;
+
+        const infoItems = [];
+
+        // Phone number
+        if (contactInfo.number) {
+            infoItems.push(`
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="bi bi-telephone"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">Phone Number</div>
+                        <div class="info-value">${contactInfo.number}</div>
+                    </div>
+                </div>
+            `);
+        }
+
+        // Push name
+        if (contactInfo.pushname && contactInfo.pushname !== contactInfo.name) {
+            infoItems.push(`
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="bi bi-person-badge"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">Display Name</div>
+                        <div class="info-value">${contactInfo.pushname}</div>
+                    </div>
+                </div>
+            `);
+        }
+
+        // Contact type
+        const contactType = contactInfo.isGroup ? 'Group' :
+                           contactInfo.isBusiness ? 'Business' :
+                           contactInfo.isMyContact ? 'Contact' : 'Unknown';
+
+        infoItems.push(`
+            <div class="info-item">
+                <div class="info-icon">
+                    <i class="bi bi-info-circle"></i>
+                </div>
+                <div class="info-content">
+                    <div class="info-label">Type</div>
+                    <div class="info-value">${contactType}</div>
+                </div>
+            </div>
+        `);
+
+        gridContainer.innerHTML = infoItems.join('');
+    }
+
+    /**
+     * Update group info
+     */
+    updateGroupInfo(groupMetadata) {
+        const groupSection = document.getElementById('group-info-section');
+        const groupDetails = document.getElementById('group-details');
+        const groupParticipants = document.getElementById('group-participants');
+
+        if (!groupSection) return;
+
+        groupSection.style.display = 'block';
+
+        // Group details
+        if (groupDetails) {
+            const details = [];
+
+            if (groupMetadata.desc) {
+                details.push(`
+                    <div class="info-item">
+                        <div class="info-icon">
+                            <i class="bi bi-chat-quote"></i>
+                        </div>
+                        <div class="info-content">
+                            <div class="info-label">Description</div>
+                            <div class="info-value">${groupMetadata.desc}</div>
+                        </div>
+                    </div>
+                `);
+            }
+
+            if (groupMetadata.creation) {
+                const creationDate = new Date(groupMetadata.creation * 1000).toLocaleDateString();
+                details.push(`
+                    <div class="info-item">
+                        <div class="info-icon">
+                            <i class="bi bi-calendar"></i>
+                        </div>
+                        <div class="info-content">
+                            <div class="info-label">Created</div>
+                            <div class="info-value">${creationDate}</div>
+                        </div>
+                    </div>
+                `);
+            }
+
+            groupDetails.innerHTML = details.join('');
+        }
+
+        // Group participants
+        if (groupParticipants && groupMetadata.participants) {
+            const participantItems = groupMetadata.participants.map(participant => {
+                const isAdmin = groupMetadata.admins?.includes(participant.id._serialized);
+                const isOwner = groupMetadata.owner === participant.id._serialized;
+
+                let role = 'Member';
+                if (isOwner) role = 'Owner';
+                else if (isAdmin) role = 'Admin';
+
+                return `
+                    <div class="participant-item">
+                        <div class="participant-avatar">
+                            <i class="bi bi-person"></i>
+                        </div>
+                        <div class="participant-info">
+                            <div class="participant-name">${participant.name || participant.id.user}</div>
+                            <div class="participant-role">
+                                ${role}
+                                ${isAdmin ? '<span class="admin-badge">Admin</span>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            groupParticipants.innerHTML = participantItems;
+        }
+    }
+
+    /**
+     * Handle my status response
+     */
+    handleMyStatus(myStatus) {
+        if (myStatus.error) {
+            console.error('Error getting my status:', myStatus.error);
+            return;
+        }
+
+        // Update my status in modal
+        const myStatusAvatar = document.getElementById('my-status-avatar');
+        const myStatusName = document.getElementById('my-status-name');
+        const myStatusAbout = document.getElementById('my-status-about');
+
+        if (myStatusAvatar && myStatus.profilePic) {
+            myStatusAvatar.innerHTML = `<img src="${myStatus.profilePic}" alt="My Profile" class="profile-picture">`;
+        }
+
+        if (myStatusName) {
+            myStatusName.textContent = myStatus.name || 'Your Name';
+        }
+
+        if (myStatusAbout) {
+            myStatusAbout.textContent = myStatus.about || 'No status';
+        }
+    }
+
+    /**
+     * Handle status stories response
+     */
+    handleStatusStories(stories) {
+        const storiesContainer = document.getElementById('status-stories');
+        if (!storiesContainer) return;
+
+        if (stories.length === 0) {
+            storiesContainer.innerHTML = '<p class="text-muted text-center">No recent status updates</p>';
+            return;
+        }
+
+        const storyItems = stories.map(story => `
+            <div class="status-story" data-story-id="${story.id}">
+                <div class="status-story-avatar">
+                    ${story.profilePic ?
+                        `<img src="${story.profilePic}" alt="${story.name}" class="profile-picture">` :
+                        '<i class="bi bi-person"></i>'
+                    }
+                </div>
+                <div class="status-story-name">${story.name}</div>
+            </div>
+        `).join('');
+
+        storiesContainer.innerHTML = storyItems;
     }
 
     /**

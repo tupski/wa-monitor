@@ -53,6 +53,9 @@
                 </div>
 
                 <div class="sidebar-actions">
+                    <button class="action-btn" id="status-btn" title="View Status">
+                        <i class="bi bi-circle-fill"></i>
+                    </button>
                     <button class="action-btn" id="refresh-btn" title="Refresh">
                         <i class="bi bi-arrow-clockwise"></i>
                     </button>
@@ -149,6 +152,9 @@
                                 Monitoring Active
                             </small>
                         </div>
+                        <button type="button" class="btn btn-link p-0 ms-2" id="contact-details-btn" title="View Contact Details">
+                            <i class="bi bi-info-circle"></i>
+                        </button>
                     </div>
 
                     <div class="chat-actions">
@@ -448,6 +454,118 @@
                     <button type="button" class="btn btn-outline-secondary" id="close-download-modal" data-bs-dismiss="modal" style="display: none;">
                         <i class="bi bi-x me-1"></i>Close
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Details Modal -->
+    <div class="modal fade" id="contactDetailsModal" tabindex="-1" aria-labelledby="contactDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered contact-details-modal">
+            <div class="modal-content">
+                <div class="modal-header border-0 contact-header">
+                    <div class="w-100">
+                        <div class="contact-avatar-large" id="contact-details-avatar">
+                            <i class="bi bi-person"></i>
+                        </div>
+                        <h4 class="contact-name-large" id="contact-details-name">Contact Name</h4>
+                        <p class="contact-number" id="contact-details-number">+1234567890</p>
+                        <div class="contact-status-badges" id="contact-status-badges">
+                            <!-- Status badges will be added here -->
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- About Section -->
+                    <div class="contact-details-section">
+                        <div class="section-title">
+                            <i class="bi bi-chat-quote"></i>
+                            About
+                        </div>
+                        <div class="contact-about">
+                            <div class="about-text" id="contact-about-text">
+                                No status available
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contact Info Section -->
+                    <div class="contact-details-section">
+                        <div class="section-title">
+                            <i class="bi bi-info-circle"></i>
+                            Contact Info
+                        </div>
+                        <div class="contact-info-grid" id="contact-info-grid">
+                            <!-- Contact info items will be added here -->
+                        </div>
+                    </div>
+
+                    <!-- Group Info Section (for groups) -->
+                    <div class="contact-details-section" id="group-info-section" style="display: none;">
+                        <div class="section-title">
+                            <i class="bi bi-people"></i>
+                            Group Info
+                        </div>
+                        <div class="group-details" id="group-details">
+                            <!-- Group details will be added here -->
+                        </div>
+                        <div class="group-participants" id="group-participants">
+                            <!-- Group participants will be added here -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="message-contact-btn">
+                        <i class="bi bi-chat me-1"></i>Message
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Modal -->
+    <div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title" id="statusModalLabel">
+                        <i class="bi bi-circle-fill me-2"></i>Status
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- My Status Section -->
+                    <div class="status-section">
+                        <div class="section-title">
+                            <i class="bi bi-person-circle"></i>
+                            My Status
+                        </div>
+                        <div class="my-status" id="my-status">
+                            <div class="my-status-avatar" id="my-status-avatar">
+                                <i class="bi bi-person"></i>
+                            </div>
+                            <div class="my-status-info">
+                                <div class="my-status-name" id="my-status-name">Your Name</div>
+                                <div class="my-status-about" id="my-status-about">No status</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Updates Section -->
+                    <div class="status-section">
+                        <div class="section-title">
+                            <i class="bi bi-clock-history"></i>
+                            Recent Updates
+                        </div>
+                        <div class="status-stories" id="status-stories">
+                            <!-- Status stories will be added here -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>

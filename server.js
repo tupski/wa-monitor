@@ -94,6 +94,15 @@ let downloadProgress = {
     estimatedTimeRemaining: 0
 };
 
+// Download tracking untuk mencegah download berulang
+let downloadTracker = {
+    isCompleted: false,
+    completedAt: null,
+    totalMessagesDownloaded: 0,
+    processedChats: new Set(),
+    lastRunDate: null
+};
+
 // Fungsi untuk mengunduh semua pesan dari semua chat
 async function downloadAllMessages() {
     if (downloadProgress.isDownloading) {
@@ -506,6 +515,162 @@ io.on('connection', (socket) => {
             }
         } catch (error) {
             console.error('Error getting deleted media:', error);
+        }
+    });
+
+    // Handle permintaan profile picture
+    socket.on('get-profile-picture', async (contactId) => {
+        try {
+            console.log(`Getting profile picture for: ${contactId}`);
+            const profilePicUrl = await client.getProfilePicUrl(contactId);
+
+            if (profilePicUrl) {
+                // Download and save profile picture
+                const response = await fetch(profilePicUrl);
+                const buffer = await response.buffer();
+
+                const filename = `profile_${contactId.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
+                const filePath = path.join(mediaFolder, 'profiles', filename);
+
+                fs.ensureDirSync(path.join(mediaFolder, 'profiles'));
+                fs.writeFileSync(filePath, buffer);
+
+                const localUrl = `/media/profiles/${filename}`;
+                socket.emit('profile-picture', { contactId, profilePicUrl: localUrl });
+
+                console.log(`Profile picture saved for ${contactId}: ${filename}`);
+            } else {
+                socket.emit('profile-picture', { contactId, profilePicUrl: null });
+            }
+        } catch (error) {
+            console.error(`Error getting profile picture for ${contactId}:`, error);
+            socket.emit('profile-picture', { contactId, profilePicUrl: null });
+        }
+    });
+
+    // Handle permintaan contact info
+    socket.on('get-contact-info', async (contactId) => {
+        try {
+            console.log(`Getting contact info for: ${contactId}`);
+
+            const contact = await client.getContactById(contactId);
+            const chat = await client.getChatById(contactId);
+
+            let contactInfo = {
+                id: contactId,
+                name: contact.name || contact.pushname || contact.formattedName,
+                pushname: contact.pushname,
+                formattedName: contact.formattedName,
+                number: contact.number,
+                isGroup: contact.isGroup,
+                isMyContact: contact.isMyContact,
+                isBlocked: contact.isBlocked,
+                isBusiness: contact.isBusiness,
+                isEnterprise: contact.isEnterprise,
+                labels: contact.labels || [],
+                statusMessage: '',
+                about: '',
+                isOnline: false,
+                lastSeen: null
+            };
+
+            // Get status/about if available
+            try {
+                const about = await client.getContactById(contactId).then(c => c.getAbout());
+                if (about) {
+                    contactInfo.about = about.about || '';
+                    contactInfo.statusMessage = about.about || '';
+                }
+            } catch (aboutError) {
+                console.log(`Could not get about for ${contactId}:`, aboutError.message);
+            }
+
+            // Get group info if it's a group
+            if (contact.isGroup && chat) {
+                try {
+                    contactInfo.groupMetadata = {
+                        participants: chat.participants || [],
+                        admins: chat.groupMetadata?.admins || [],
+                        owner: chat.groupMetadata?.owner || null,
+                        creation: chat.groupMetadata?.creation || null,
+                        desc: chat.groupMetadata?.desc || '',
+                        descId: chat.groupMetadata?.descId || '',
+                        descTime: chat.groupMetadata?.descTime || null,
+                        descOwner: chat.groupMetadata?.descOwner || null,
+                        restrict: chat.groupMetadata?.restrict || false,
+                        announce: chat.groupMetadata?.announce || false
+                    };
+                } catch (groupError) {
+                    console.log(`Could not get group metadata for ${contactId}:`, groupError.message);
+                }
+            }
+
+            socket.emit('contact-info', contactInfo);
+            console.log(`Contact info sent for ${contactId}`);
+
+        } catch (error) {
+            console.error(`Error getting contact info for ${contactId}:`, error);
+            socket.emit('contact-info', { id: contactId, error: error.message });
+        }
+    });
+
+    // Handle permintaan status stories
+    socket.on('get-status-stories', async () => {
+        try {
+            console.log('Getting status stories...');
+
+            // Get all status stories (this might not work in all WhatsApp Web versions)
+            // This is a placeholder - actual implementation depends on whatsapp-web.js capabilities
+            const stories = [];
+
+            socket.emit('status-stories', stories);
+            console.log('Status stories sent');
+
+        } catch (error) {
+            console.error('Error getting status stories:', error);
+            socket.emit('status-stories', []);
+        }
+    });
+
+    // Handle permintaan my status
+    socket.on('get-my-status', async () => {
+        try {
+            console.log('Getting my status...');
+
+            const myContact = await client.getContactById(client.info.wid._serialized);
+            let myStatus = {
+                name: client.info.pushname || myContact.name,
+                about: '',
+                profilePic: null,
+                number: client.info.wid.user
+            };
+
+            // Get my about
+            try {
+                const about = await myContact.getAbout();
+                if (about) {
+                    myStatus.about = about.about || '';
+                }
+            } catch (aboutError) {
+                console.log('Could not get my about:', aboutError.message);
+            }
+
+            // Get my profile picture
+            try {
+                const profilePicUrl = await client.getProfilePicUrl(client.info.wid._serialized);
+                if (profilePicUrl) {
+                    myStatus.profilePic = profilePicUrl;
+                }
+            } catch (picError) {
+                console.log('Could not get my profile picture:', picError.message);
+            }
+
+            socket.emit('my-status', myStatus);
+            console.log('My status sent');
+
+        } catch (error) {
+            console.error('Error getting my status:', error);
+            socket.emit('my-status', { error: error.message });
         }
     });
 
