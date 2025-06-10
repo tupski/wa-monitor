@@ -44,6 +44,14 @@ class WAMonitorDashboard {
             exportBtn: document.getElementById('export-btn'),
             searchMessagesBtn: document.getElementById('search-messages-btn'),
 
+            // Message search elements
+            messageSearchContainer: document.getElementById('message-search-container'),
+            messageSearchInput: document.getElementById('message-search-input'),
+            searchResultCounter: document.getElementById('search-result-counter'),
+            searchPrevBtn: document.getElementById('search-prev-btn'),
+            searchNextBtn: document.getElementById('search-next-btn'),
+            searchCloseBtn: document.getElementById('search-close-btn'),
+
             // Modals
             mediaModal: document.getElementById('mediaModal'),
             exportModal: document.getElementById('exportModal'),
@@ -60,7 +68,12 @@ class WAMonitorDashboard {
             isSearching: false,
             isMobileMenuOpen: false,
             currentMessages: [],
-            isLoading: false
+            isLoading: false,
+            // Message search state
+            messageSearchActive: false,
+            searchResults: [],
+            currentSearchIndex: 0,
+            searchQuery: ''
         };
 
         // Initialize Bootstrap modals
@@ -124,6 +137,50 @@ class WAMonitorDashboard {
         if (this.elements.startExport) {
             this.elements.startExport.addEventListener('click', () => {
                 this.handleExport();
+            });
+        }
+
+        // Message search functionality
+        if (this.elements.searchMessagesBtn) {
+            this.elements.searchMessagesBtn.addEventListener('click', () => {
+                this.toggleMessageSearch();
+            });
+        }
+
+        if (this.elements.messageSearchInput) {
+            this.elements.messageSearchInput.addEventListener('input', (e) => {
+                this.handleMessageSearch(e.target.value);
+            });
+
+            this.elements.messageSearchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        this.searchPrevious();
+                    } else {
+                        this.searchNext();
+                    }
+                } else if (e.key === 'Escape') {
+                    this.closeMessageSearch();
+                }
+            });
+        }
+
+        if (this.elements.searchPrevBtn) {
+            this.elements.searchPrevBtn.addEventListener('click', () => {
+                this.searchPrevious();
+            });
+        }
+
+        if (this.elements.searchNextBtn) {
+            this.elements.searchNextBtn.addEventListener('click', () => {
+                this.searchNext();
+            });
+        }
+
+        if (this.elements.searchCloseBtn) {
+            this.elements.searchCloseBtn.addEventListener('click', () => {
+                this.closeMessageSearch();
             });
         }
 
@@ -721,6 +778,23 @@ class WAMonitorDashboard {
             }
         });
 
+        this.socket.on('call_log', (data) => {
+            console.log('Call log received:', data);
+            if (this.state.currentChatId === data.chatId) {
+                this.addCallLogToChat(data.callInfo);
+            }
+        });
+
+        this.socket.on('call-logs', (data) => {
+            console.log('Call logs received:', data);
+            // Handle call logs display
+        });
+
+        this.socket.on('deleted-media', (data) => {
+            console.log('Deleted media received:', data);
+            // Handle deleted media display
+        });
+
         this.socket.on('media-downloaded', (data) => {
             this.handleMediaDownloaded(data);
         });
@@ -847,19 +921,36 @@ class WAMonitorDashboard {
             } else if (mediaType === 'video') {
                 return `
                     <div class="message-media" data-message-id="${messageId}" data-chat-id="${chatId}">
-                        <video controls class="media-preview">
-                            <source src="${message.mediaPath}" type="${message.mimetype}">
-                            Your browser does not support the video tag.
-                        </video>
+                        <div class="video-player">
+                            <video controls class="media-preview" preload="metadata">
+                                <source src="${message.mediaPath}" type="${message.mimetype}">
+                                Your browser does not support the video tag.
+                            </video>
+                            <div class="media-controls">
+                                <button class="media-control-btn" onclick="this.previousElementSibling.play()">
+                                    <i class="bi bi-play"></i>
+                                </button>
+                                <button class="media-control-btn" onclick="this.previousElementSibling.previousElementSibling.pause()">
+                                    <i class="bi bi-pause"></i>
+                                </button>
+                                <div class="media-info">Video • ${this.getFileSize(message.mediaPath)}</div>
+                            </div>
+                        </div>
                     </div>
                 `;
             } else if (mediaType === 'audio') {
                 return `
                     <div class="message-media" data-message-id="${messageId}" data-chat-id="${chatId}">
-                        <audio controls>
-                            <source src="${message.mediaPath}" type="${message.mimetype}">
-                            Your browser does not support the audio tag.
-                        </audio>
+                        <div class="audio-player">
+                            <div class="call-icon">
+                                <i class="bi bi-music-note"></i>
+                            </div>
+                            <audio controls preload="metadata">
+                                <source src="${message.mediaPath}" type="${message.mimetype}">
+                                Your browser does not support the audio tag.
+                            </audio>
+                            <div class="media-info">Audio • ${this.getFileSize(message.mediaPath)}</div>
+                        </div>
                     </div>
                 `;
             } else {
@@ -928,19 +1019,175 @@ class WAMonitorDashboard {
             messageBody = message._data.body;
         }
 
+        let content = '';
+
+        // If message has deleted media, show it
+        if (message.hasMedia && message.mediaPath) {
+            content += this.renderDeletedMedia(message);
+        }
+
         if (messageBody && messageBody !== '(Pesan ini telah dihapus)') {
-            return `
+            content += `
                 <div class="message-text deleted-message">
                     <i class="bi bi-trash"></i> This message was deleted: ${this.formatWhatsAppText(messageBody)}
                 </div>
             `;
         } else {
-            return `
+            content += `
                 <div class="message-text deleted-message">
                     <i class="bi bi-trash"></i> This message was deleted
                 </div>
             `;
         }
+
+        return content;
+    }
+
+    /**
+     * Render deleted media (still playable)
+     */
+    renderDeletedMedia(message) {
+        const mediaType = message.mimetype ? message.mimetype.split('/')[0] : 'unknown';
+        const messageId = message.id ? message.id.id : 'unknown';
+
+        let mediaContent = '';
+
+        if (mediaType === 'image') {
+            mediaContent = `
+                <div class="message-media deleted-media">
+                    <img src="${message.mediaPath}" alt="Deleted Image" class="media-preview">
+                </div>
+            `;
+        } else if (mediaType === 'video') {
+            mediaContent = `
+                <div class="message-media deleted-media">
+                    <div class="video-player">
+                        <video controls class="media-preview">
+                            <source src="${message.mediaPath}" type="${message.mimetype}">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                </div>
+            `;
+        } else if (mediaType === 'audio') {
+            mediaContent = `
+                <div class="message-media deleted-media">
+                    <div class="audio-player">
+                        <audio controls>
+                            <source src="${message.mediaPath}" type="${message.mimetype}">
+                            Your browser does not support the audio tag.
+                        </audio>
+                        <div class="media-info">
+                            <i class="bi bi-music-note"></i> Deleted Audio
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            const filename = message.mediaPath.split('/').pop();
+            mediaContent = `
+                <div class="message-media deleted-media">
+                    <div class="document-preview">
+                        <i class="bi bi-file-earmark-text document-icon"></i>
+                        <div class="document-info">
+                            <span class="document-name">${this.escapeHtml(filename)} (Deleted)</span>
+                            <a href="${message.mediaPath}" download class="document-download">
+                                <i class="bi bi-download"></i> Download
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        return mediaContent;
+    }
+
+    /**
+     * Render call log message
+     */
+    renderCallMessage(callInfo) {
+        const isVideo = callInfo.isVideo;
+        const isIncoming = !callInfo.fromMe;
+        const duration = callInfo.duration || 0;
+        const status = callInfo.status || 'unknown';
+
+        let callIcon = 'bi-telephone';
+        let callClass = 'outgoing';
+        let callText = 'Outgoing call';
+        let fallbackIcon = '📞'; // Emoji fallback
+
+        if (isVideo) {
+            callIcon = 'bi-camera-video';
+            callClass = 'video';
+            callText = isIncoming ? 'Incoming video call' : 'Outgoing video call';
+            fallbackIcon = '📹';
+        } else {
+            if (isIncoming) {
+                callIcon = 'bi-telephone-inbound';
+                callClass = 'incoming';
+                callText = 'Incoming call';
+                fallbackIcon = '📞';
+            } else {
+                callIcon = 'bi-telephone-outbound';
+                callClass = 'outgoing';
+                callText = 'Outgoing call';
+                fallbackIcon = '📞';
+            }
+        }
+
+        if (status === 'missed') {
+            callClass = 'missed';
+            callText = 'Missed call';
+            fallbackIcon = '❌';
+        }
+
+        const durationText = duration > 0 ? this.formatCallDuration(duration) : 'Not answered';
+
+        return `
+            <div class="call-message">
+                <div class="call-icon ${callClass}">
+                    <i class="bi ${callIcon}" style="font-size: 1.125rem;">${fallbackIcon}</i>
+                </div>
+                <div class="call-info">
+                    <div class="call-type">${callText}</div>
+                    <div class="call-duration">${durationText}</div>
+                    <div class="call-status">${this.formatRelativeTime(callInfo.timestamp / 1000)}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Format call duration
+     */
+    formatCallDuration(seconds) {
+        if (seconds < 60) {
+            return `${seconds} seconds`;
+        } else {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+    }
+
+    /**
+     * Add call log to chat
+     */
+    addCallLogToChat(callInfo) {
+        if (!this.elements.chatBody) return;
+
+        const callElement = document.createElement('div');
+        callElement.className = 'message call-log fade-in';
+        callElement.innerHTML = `
+            <div class="message-content">
+                ${this.renderCallMessage(callInfo)}
+                <div class="message-time">${this.formatTime(callInfo.timestamp / 1000)}</div>
+            </div>
+        `;
+
+        this.elements.chatBody.appendChild(callElement);
+        this.scrollToBottom();
     }
 
     /**
@@ -1084,6 +1331,284 @@ class WAMonitorDashboard {
                 `;
             }
         });
+    }
+
+    /**
+     * Get file size (placeholder - would need server support for real file sizes)
+     */
+    getFileSize(filePath) {
+        // This is a placeholder - in real implementation, you'd get this from server
+        return 'Unknown size';
+    }
+
+    /**
+     * Handle sticker messages
+     */
+    renderStickerMessage(message, chatId) {
+        const messageId = message.id ? message.id.id : 'unknown';
+
+        if (message.mediaPath) {
+            return `
+                <div class="message-media sticker-message" data-message-id="${messageId}" data-chat-id="${chatId}">
+                    <img src="${message.mediaPath}" alt="Sticker" class="media-preview">
+                </div>
+            `;
+        } else {
+            // Auto-download sticker
+            setTimeout(() => {
+                this.socket.emit('download-media', { messageId, chatId });
+            }, 500);
+
+            return `
+                <div class="message-media sticker-message" data-message-id="${messageId}" data-chat-id="${chatId}">
+                    <div class="message-media-icon">
+                        <i class="bi bi-emoji-smile"></i>
+                        <span>Sticker</span>
+                        <div class="media-loading">
+                            <div class="spinner"></div>
+                            <span>Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Check if message should not be marked as read
+     */
+    preventReadReceipt() {
+        // This is handled on the server side by not marking messages as read
+        // The client just monitors without affecting read status
+        console.log('Monitoring mode: Messages will not be marked as read');
+    }
+
+    /**
+     * Toggle message search
+     */
+    toggleMessageSearch() {
+        if (!this.state.currentChatId) {
+            alert('Please select a chat first');
+            return;
+        }
+
+        this.state.messageSearchActive = !this.state.messageSearchActive;
+
+        if (this.state.messageSearchActive) {
+            this.showMessageSearch();
+        } else {
+            this.closeMessageSearch();
+        }
+    }
+
+    /**
+     * Show message search interface
+     */
+    showMessageSearch() {
+        if (this.elements.messageSearchContainer) {
+            this.elements.messageSearchContainer.classList.add('active');
+            this.elements.messageSearchInput.focus();
+        }
+    }
+
+    /**
+     * Close message search interface
+     */
+    closeMessageSearch() {
+        this.state.messageSearchActive = false;
+        this.state.searchResults = [];
+        this.state.currentSearchIndex = 0;
+        this.state.searchQuery = '';
+
+        if (this.elements.messageSearchContainer) {
+            this.elements.messageSearchContainer.classList.remove('active');
+        }
+
+        if (this.elements.messageSearchInput) {
+            this.elements.messageSearchInput.value = '';
+        }
+
+        // Clear search highlights
+        this.clearSearchHighlights();
+        this.updateSearchCounter();
+    }
+
+    /**
+     * Handle message search
+     */
+    handleMessageSearch(query) {
+        this.state.searchQuery = query.trim().toLowerCase();
+
+        if (this.state.searchQuery === '') {
+            this.state.searchResults = [];
+            this.state.currentSearchIndex = 0;
+            this.clearSearchHighlights();
+            this.updateSearchCounter();
+            return;
+        }
+
+        // Search through current messages
+        this.searchInMessages();
+        this.highlightSearchResults();
+        this.updateSearchCounter();
+
+        // Navigate to first result
+        if (this.state.searchResults.length > 0) {
+            this.state.currentSearchIndex = 0;
+            this.scrollToSearchResult(0);
+        }
+    }
+
+    /**
+     * Search in current messages
+     */
+    searchInMessages() {
+        this.state.searchResults = [];
+
+        if (!this.state.currentMessages || this.state.currentMessages.length === 0) {
+            return;
+        }
+
+        this.state.currentMessages.forEach((message, index) => {
+            if (message.body && message.body.toLowerCase().includes(this.state.searchQuery)) {
+                this.state.searchResults.push({
+                    messageIndex: index,
+                    messageId: message.id ? message.id.id : null,
+                    text: message.body
+                });
+            }
+        });
+    }
+
+    /**
+     * Highlight search results in messages
+     */
+    highlightSearchResults() {
+        // Clear previous highlights
+        this.clearSearchHighlights();
+
+        if (this.state.searchQuery === '' || this.state.searchResults.length === 0) {
+            return;
+        }
+
+        // Add highlights to matching messages
+        const messageElements = document.querySelectorAll('.message-text');
+        messageElements.forEach(element => {
+            const text = element.textContent || element.innerText;
+            if (text.toLowerCase().includes(this.state.searchQuery)) {
+                const highlightedText = this.highlightText(element.innerHTML, this.state.searchQuery);
+                element.innerHTML = highlightedText;
+                element.closest('.message').classList.add('message-search-result');
+            }
+        });
+    }
+
+    /**
+     * Highlight text with search query
+     */
+    highlightText(text, query) {
+        const regex = new RegExp(`(${this.escapeRegex(query)})`, 'gi');
+        return text.replace(regex, '<span class="message-highlight">$1</span>');
+    }
+
+    /**
+     * Escape regex special characters
+     */
+    escapeRegex(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    /**
+     * Clear search highlights
+     */
+    clearSearchHighlights() {
+        // Remove highlight spans
+        const highlights = document.querySelectorAll('.message-highlight');
+        highlights.forEach(highlight => {
+            const parent = highlight.parentNode;
+            parent.replaceChild(document.createTextNode(highlight.textContent), highlight);
+            parent.normalize();
+        });
+
+        // Remove search result classes
+        const searchResults = document.querySelectorAll('.message-search-result');
+        searchResults.forEach(result => {
+            result.classList.remove('message-search-result');
+        });
+    }
+
+    /**
+     * Navigate to next search result
+     */
+    searchNext() {
+        if (this.state.searchResults.length === 0) return;
+
+        this.state.currentSearchIndex = (this.state.currentSearchIndex + 1) % this.state.searchResults.length;
+        this.scrollToSearchResult(this.state.currentSearchIndex);
+        this.updateSearchCounter();
+    }
+
+    /**
+     * Navigate to previous search result
+     */
+    searchPrevious() {
+        if (this.state.searchResults.length === 0) return;
+
+        this.state.currentSearchIndex = this.state.currentSearchIndex === 0
+            ? this.state.searchResults.length - 1
+            : this.state.currentSearchIndex - 1;
+        this.scrollToSearchResult(this.state.currentSearchIndex);
+        this.updateSearchCounter();
+    }
+
+    /**
+     * Scroll to specific search result
+     */
+    scrollToSearchResult(index) {
+        if (index < 0 || index >= this.state.searchResults.length) return;
+
+        const result = this.state.searchResults[index];
+        const messageElements = document.querySelectorAll('.message');
+
+        // Find the message element by content or index
+        let targetElement = null;
+        messageElements.forEach(element => {
+            const messageText = element.querySelector('.message-text');
+            if (messageText && messageText.textContent.includes(result.text)) {
+                targetElement = element;
+            }
+        });
+
+        if (targetElement) {
+            targetElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+
+            // Temporarily highlight the current result
+            targetElement.style.backgroundColor = 'rgba(99, 102, 241, 0.2)';
+            setTimeout(() => {
+                targetElement.style.backgroundColor = '';
+            }, 1000);
+        }
+    }
+
+    /**
+     * Update search result counter
+     */
+    updateSearchCounter() {
+        if (!this.elements.searchResultCounter) return;
+
+        if (this.state.searchResults.length === 0) {
+            this.elements.searchResultCounter.textContent = '0 of 0';
+            this.elements.searchPrevBtn.disabled = true;
+            this.elements.searchNextBtn.disabled = true;
+        } else {
+            this.elements.searchResultCounter.textContent =
+                `${this.state.currentSearchIndex + 1} of ${this.state.searchResults.length}`;
+            this.elements.searchPrevBtn.disabled = false;
+            this.elements.searchNextBtn.disabled = false;
+        }
     }
 }
 

@@ -67,7 +67,10 @@ const client = new Client({
     webVersionCache: {
         type: 'remote',
         remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
-    }
+    },
+    // Disable read receipts to prevent marking messages as read
+    markOnlineOnConnect: false,
+    restartOnAuthFail: true
 });
 
 // Variabel untuk menyimpan data chat
@@ -75,6 +78,8 @@ let chats = [];
 let contacts = [];
 let messages = {};
 let deletedMessages = {}; // Untuk menyimpan pesan yang dihapus
+let deletedMediaCache = new Map(); // Cache untuk media yang dihapus
+let callLogsCache = new Map(); // Cache untuk call logs
 
 // Socket.io connection
 io.on('connection', (socket) => {
@@ -236,6 +241,29 @@ io.on('connection', (socket) => {
             console.error('Error saat update media path:', error);
         }
     });
+
+    // Handle permintaan call logs
+    socket.on('get-call-logs', (chatId) => {
+        try {
+            const callLogs = callLogsCache.get(chatId) || [];
+            socket.emit('call-logs', { chatId, callLogs });
+        } catch (error) {
+            console.error('Error getting call logs:', error);
+            socket.emit('error', { message: 'Gagal mengambil call logs' });
+        }
+    });
+
+    // Handle permintaan deleted media
+    socket.on('get-deleted-media', (messageId) => {
+        try {
+            const mediaInfo = deletedMediaCache.get(messageId);
+            if (mediaInfo) {
+                socket.emit('deleted-media', { messageId, mediaInfo });
+            }
+        } catch (error) {
+            console.error('Error getting deleted media:', error);
+        }
+    });
 });
 
 // WhatsApp client events
@@ -287,6 +315,11 @@ client.on('disconnected', (reason) => {
 client.on('message', async (message) => {
     console.log(`Pesan baru diterima dari: ${message.from}`);
     console.log(`Isi pesan: ${message.body.substring(0, 30)}${message.body.length > 30 ? '...' : ''}`);
+    console.log(`Tipe pesan: ${message.type}`);
+
+    // PENTING: Jangan tandai pesan sebagai dibaca untuk monitoring
+    // WhatsApp Web secara default akan menandai pesan sebagai dibaca ketika dilihat
+    // Kita akan mencegah ini dengan tidak memanggil message.getChat().sendSeen()
 
     // Jika chat belum ada di messages, buat array baru
     if (!messages[message.from]) {
@@ -298,12 +331,41 @@ client.on('message', async (message) => {
     messages[message.from].unshift(message);
     console.log(`Pesan ditambahkan ke cache. Total pesan untuk chat ${message.from}: ${messages[message.from].length}`);
 
+    // Deteksi panggilan dari pesan
+    if (message.type === 'call_log') {
+        console.log('Call log detected in message');
+        const callInfo = {
+            id: message.id.id,
+            from: message.from,
+            to: message.to,
+            timestamp: message.timestamp * 1000,
+            isVideo: message.body.includes('video') || message.body.includes('Video'),
+            fromMe: message.fromMe,
+            type: 'call',
+            duration: 0, // Call logs in messages don't have duration
+            status: message.body.includes('Missed') ? 'missed' :
+                   message.fromMe ? 'outgoing' : 'incoming'
+        };
+
+        // Simpan ke cache call logs
+        if (!callLogsCache.has(message.from)) {
+            callLogsCache.set(message.from, []);
+        }
+        callLogsCache.get(message.from).push(callInfo);
+
+        // Emit ke client
+        io.emit('call_log', {
+            chatId: message.from,
+            callInfo: callInfo
+        });
+    }
+
     // Jika pesan memiliki media, download dan simpan
     if (message.hasMedia) {
         try {
             const media = await message.downloadMedia();
             if (media) {
-                const extension = media.mimetype.split('/')[1];
+                const extension = media.mimetype.split('/')[1] || 'bin';
                 const filename = `${Date.now()}-${message.id.id}.${extension}`;
                 const filePath = path.join(mediaFolder, filename);
 
@@ -311,6 +373,8 @@ client.on('message', async (message) => {
 
                 // Tambahkan path file ke pesan
                 message.mediaPath = `/media/${filename}`;
+
+                console.log(`Media disimpan: ${filename}, tipe: ${media.mimetype}`);
             }
         } catch (error) {
             console.error('Error saat mengunduh media dari pesan baru:', error);
@@ -495,6 +559,43 @@ client.on('message_revoke_everyone', async (after, before) => {
         }
     } catch (error) {
         console.error('Error saat menangani pesan yang dihapus:', error);
+    }
+});
+
+// Event untuk menangani panggilan (call logs)
+client.on('call', async (call) => {
+    console.log('Panggilan terdeteksi:', call);
+
+    try {
+        const callInfo = {
+            id: call.id || `call_${Date.now()}`,
+            from: call.from,
+            to: call.to,
+            timestamp: Date.now(),
+            isVideo: call.isVideo || false,
+            isGroup: call.isGroup || false,
+            fromMe: call.fromMe || false,
+            type: 'call',
+            duration: call.duration || 0,
+            status: call.status || 'unknown' // incoming, outgoing, missed
+        };
+
+        // Simpan ke cache call logs
+        const chatId = call.from;
+        if (!callLogsCache.has(chatId)) {
+            callLogsCache.set(chatId, []);
+        }
+        callLogsCache.get(chatId).push(callInfo);
+
+        // Emit ke client
+        io.emit('call_log', {
+            chatId: chatId,
+            callInfo: callInfo
+        });
+
+        console.log(`Call log disimpan untuk chat ${chatId}`);
+    } catch (error) {
+        console.error('Error handling call:', error);
     }
 });
 
