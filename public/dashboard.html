@@ -571,6 +571,44 @@
         </div>
     </div>
 
+    <!-- Status Viewer Modal -->
+    <div class="modal fade" id="statusViewerModal" tabindex="-1" aria-labelledby="statusViewerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered status-viewer-modal">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <div class="status-header w-100">
+                        <div class="status-header-avatar" id="status-viewer-avatar">
+                            <i class="bi bi-person"></i>
+                        </div>
+                        <div class="status-header-info">
+                            <div class="status-header-name" id="status-viewer-name">Contact Name</div>
+                            <div class="status-header-time" id="status-viewer-time">2 hours ago</div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="status-progress">
+                        <div class="status-progress-bar" id="status-progress-bar"></div>
+                    </div>
+                    <div class="status-content" id="status-content">
+                        <div class="status-text">
+                            <p>This is a sample status message</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-light" id="status-prev-btn">
+                        <i class="bi bi-chevron-left"></i> Previous
+                    </button>
+                    <button type="button" class="btn btn-outline-light" id="status-next-btn">
+                        Next <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/main.js"></script>

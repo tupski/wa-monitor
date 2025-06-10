@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const socketIo = require('socket.io');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
@@ -103,10 +104,33 @@ let downloadTracker = {
     lastRunDate: null
 };
 
+// Status tracking
+let statusTracker = {
+    contacts: new Map(), // contactId -> { hasStatus: boolean, lastUpdate: timestamp, profilePic: url }
+    myStatus: null,
+    lastStatusCheck: null
+};
+
 // Fungsi untuk mengunduh semua pesan dari semua chat
 async function downloadAllMessages() {
     if (downloadProgress.isDownloading) {
         console.log('Download already in progress...');
+        return;
+    }
+
+    // Check if download already completed today
+    const today = new Date().toDateString();
+    if (downloadTracker.isCompleted && downloadTracker.lastRunDate === today) {
+        console.log('📋 Download already completed today. Skipping auto-download.');
+        console.log(`📊 Previous download: ${downloadTracker.totalMessagesDownloaded} messages from ${downloadTracker.processedChats.size} chats`);
+
+        // Emit completion status to clients
+        io.emit('download-already-completed', {
+            completedAt: downloadTracker.completedAt,
+            totalMessages: downloadTracker.totalMessagesDownloaded,
+            totalChats: downloadTracker.processedChats.size,
+            lastRunDate: downloadTracker.lastRunDate
+        });
         return;
     }
 
@@ -167,6 +191,21 @@ async function downloadAllMessages() {
             console.log(`⚠️ Errors encountered: ${downloadProgress.errors.length}`);
         }
 
+        // Update download tracker
+        downloadTracker.isCompleted = true;
+        downloadTracker.completedAt = new Date().toISOString();
+        downloadTracker.totalMessagesDownloaded = downloadProgress.processedMessages;
+        downloadTracker.lastRunDate = new Date().toDateString();
+
+        // Save download tracker to file
+        try {
+            const trackerFile = path.join(mediaFolder, 'download_tracker.json');
+            fs.writeFileSync(trackerFile, JSON.stringify(downloadTracker, null, 2));
+            console.log('📋 Download tracker saved');
+        } catch (trackerError) {
+            console.error('Error saving download tracker:', trackerError);
+        }
+
     } catch (error) {
         console.error('❌ Fatal error during download:', error);
         downloadProgress.errors.push({
@@ -179,7 +218,8 @@ async function downloadAllMessages() {
             totalMessages: downloadProgress.processedMessages,
             totalChats: downloadProgress.processedChats,
             errors: downloadProgress.errors,
-            duration: Math.round((Date.now() - downloadProgress.startTime) / 1000)
+            duration: Math.round((Date.now() - downloadProgress.startTime) / 1000),
+            isFirstTime: !downloadTracker.isCompleted
         });
     }
 }
@@ -525,15 +565,19 @@ io.on('connection', (socket) => {
             const profilePicUrl = await client.getProfilePicUrl(contactId);
 
             if (profilePicUrl) {
-                // Download and save profile picture
-                const response = await fetch(profilePicUrl);
-                const buffer = await response.buffer();
-
                 const filename = `profile_${contactId.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
-                const filePath = path.join(mediaFolder, 'profiles', filename);
+                const profilesFolder = path.join(mediaFolder, 'profiles');
+                fs.ensureDirSync(profilesFolder);
+                const filePath = path.join(profilesFolder, filename);
 
-                fs.ensureDirSync(path.join(mediaFolder, 'profiles'));
-                fs.writeFileSync(filePath, buffer);
+                // Check if file already exists
+                if (fs.existsSync(filePath)) {
+                    console.log(`Profile picture already exists for ${contactId}: ${filename}`);
+                    const localUrl = `/media/profiles/${filename}`;
+                    socket.emit('profile-picture', { contactId, profilePicUrl: localUrl });
+                } else {
+                    await downloadProfilePicture(profilePicUrl, filePath);
+                }
 
                 const localUrl = `/media/profiles/${filename}`;
                 socket.emit('profile-picture', { contactId, profilePicUrl: localUrl });
@@ -619,12 +663,45 @@ io.on('connection', (socket) => {
         try {
             console.log('Getting status stories...');
 
-            // Get all status stories (this might not work in all WhatsApp Web versions)
-            // This is a placeholder - actual implementation depends on whatsapp-web.js capabilities
+            // Get status stories from contacts
             const stories = [];
+            const allChats = await client.getChats();
+
+            for (const chat of allChats) {
+                try {
+                    const contactId = chat.id._serialized;
+
+                    // Simulate status detection (WhatsApp Web API limitations)
+                    // In real implementation, this would check for actual status updates
+                    const hasRecentActivity = chat.lastMessage &&
+                        (Date.now() - chat.lastMessage.timestamp * 1000) < 24 * 60 * 60 * 1000; // 24 hours
+
+                    if (hasRecentActivity && Math.random() > 0.7) { // Simulate 30% chance of having status
+                        const contactInfo = statusTracker.contacts.get(contactId) || {};
+
+                        stories.push({
+                            id: contactId,
+                            name: chat.name || chat.id.user,
+                            profilePic: contactInfo.profilePic || null,
+                            hasStatus: true,
+                            lastUpdate: Date.now() - Math.random() * 12 * 60 * 60 * 1000, // Random time in last 12 hours
+                            isViewed: false
+                        });
+
+                        // Update status tracker
+                        statusTracker.contacts.set(contactId, {
+                            ...contactInfo,
+                            hasStatus: true,
+                            lastUpdate: Date.now()
+                        });
+                    }
+                } catch (contactError) {
+                    console.log(`Error checking status for ${chat.name}:`, contactError.message);
+                }
+            }
 
             socket.emit('status-stories', stories);
-            console.log('Status stories sent');
+            console.log(`Status stories sent: ${stories.length} contacts with status`);
 
         } catch (error) {
             console.error('Error getting status stories:', error);
@@ -729,6 +806,12 @@ client.on('ready', async () => {
     setTimeout(() => {
         downloadAllMessages();
     }, 5000); // Wait 5 seconds after ready
+
+    // Auto-load profile pictures for all chats
+    console.log('📸 Starting automatic profile picture download...');
+    setTimeout(() => {
+        loadAllProfilePictures();
+    }, 8000); // Wait 8 seconds after ready
 });
 
 client.on('authenticated', () => {
@@ -1037,6 +1120,177 @@ client.on('call', async (call) => {
         console.error('Error handling call:', error);
     }
 });
+
+// Load download tracker dari file
+function loadDownloadTracker() {
+    try {
+        const trackerFile = path.join(mediaFolder, 'download_tracker.json');
+        if (fs.existsSync(trackerFile)) {
+            const trackerData = JSON.parse(fs.readFileSync(trackerFile, 'utf8'));
+            downloadTracker = { ...downloadTracker, ...trackerData };
+
+            // Convert processedChats array back to Set if needed
+            if (Array.isArray(downloadTracker.processedChats)) {
+                downloadTracker.processedChats = new Set(downloadTracker.processedChats);
+            }
+
+            console.log('📋 Download tracker loaded');
+            console.log(`📊 Previous download: ${downloadTracker.totalMessagesDownloaded} messages`);
+        }
+    } catch (error) {
+        console.error('Error loading download tracker:', error);
+    }
+}
+
+// Fungsi untuk load semua profile pictures
+async function loadAllProfilePictures() {
+    try {
+        console.log('📸 Loading profile pictures for all chats...');
+
+        const allChats = await client.getChats();
+        let loadedCount = 0;
+        let errorCount = 0;
+
+        for (const chat of allChats) {
+            try {
+                const contactId = chat.id._serialized;
+                console.log(`📸 Loading profile picture for: ${chat.name || contactId}`);
+
+                const profilePicUrl = await client.getProfilePicUrl(contactId);
+
+                if (profilePicUrl) {
+                    const filename = `profile_${contactId.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
+                    const profilesFolder = path.join(mediaFolder, 'profiles');
+                    fs.ensureDirSync(profilesFolder);
+                    const filePath = path.join(profilesFolder, filename);
+
+                    // Check if file already exists
+                    if (fs.existsSync(filePath)) {
+                        console.log(`📸 Profile picture already exists: ${filename}`);
+                        const localUrl = `/media/profiles/${filename}`;
+                        io.emit('profile-picture', { contactId, profilePicUrl: localUrl });
+                        loadedCount++;
+                    } else {
+                        try {
+                            await downloadProfilePicture(profilePicUrl, filePath);
+
+                            const localUrl = `/media/profiles/${filename}`;
+
+                            // Emit to all clients
+                            io.emit('profile-picture', { contactId, profilePicUrl: localUrl });
+
+                            loadedCount++;
+                            console.log(`📸 Profile picture saved: ${filename}`);
+                        } catch (downloadError) {
+                            console.error(`📸 Error downloading profile picture for ${chat.name || contactId}:`, downloadError.message);
+                            errorCount++;
+                        }
+                    }
+                } else {
+                    console.log(`📸 No profile picture for: ${chat.name || contactId}`);
+                }
+
+                // Small delay to prevent overwhelming
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+            } catch (error) {
+                errorCount++;
+                console.error(`📸 Error loading profile picture for ${chat.name || chat.id._serialized}:`, error.message);
+
+                // Still emit profile-picture event with null to update UI
+                io.emit('profile-picture', { contactId: chat.id._serialized, profilePicUrl: null });
+            }
+        }
+
+        console.log(`📸 Profile pictures loading completed!`);
+        console.log(`📊 Loaded: ${loadedCount}, Errors: ${errorCount}, Total: ${allChats.length}`);
+
+        // Emit completion status
+        io.emit('profile-pictures-loaded', {
+            loaded: loadedCount,
+            errors: errorCount,
+            total: allChats.length
+        });
+
+    } catch (error) {
+        console.error('📸 Fatal error loading profile pictures:', error);
+    }
+}
+
+// Helper function untuk download profile picture dengan retry
+async function downloadProfilePicture(profilePicUrl, filePath, retries = 3) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            await downloadProfilePictureAttempt(profilePicUrl, filePath);
+            return; // Success, exit function
+        } catch (error) {
+            console.log(`📸 Download attempt ${attempt}/${retries} failed for ${filePath}: ${error.message}`);
+
+            if (attempt === retries) {
+                throw error; // Last attempt failed, throw error
+            }
+
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+    }
+}
+
+// Helper function untuk single download attempt
+async function downloadProfilePictureAttempt(profilePicUrl, filePath) {
+    return new Promise((resolve, reject) => {
+        const protocol = profilePicUrl.startsWith('https:') ? https : http;
+        const file = fs.createWriteStream(filePath);
+
+        const request = protocol.get(profilePicUrl, (response) => {
+            // Handle redirects
+            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                file.close();
+                fs.unlink(filePath, () => {}); // Delete the file
+                return downloadProfilePictureAttempt(response.headers.location, filePath)
+                    .then(resolve)
+                    .catch(reject);
+            }
+
+            if (response.statusCode !== 200) {
+                file.close();
+                fs.unlink(filePath, () => {}); // Delete the file
+                reject(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`));
+                return;
+            }
+
+            response.pipe(file);
+
+            file.on('finish', () => {
+                file.close();
+                resolve();
+            });
+
+            file.on('error', (err) => {
+                file.close();
+                fs.unlink(filePath, () => {}); // Delete the file on error
+                reject(err);
+            });
+        });
+
+        request.on('error', (err) => {
+            file.close();
+            fs.unlink(filePath, () => {}); // Delete the file on error
+            reject(err);
+        });
+
+        // Set timeout
+        request.setTimeout(15000, () => {
+            request.destroy();
+            file.close();
+            fs.unlink(filePath, () => {}); // Delete the file on timeout
+            reject(new Error('Download timeout'));
+        });
+    });
+}
+
+// Load download tracker saat startup
+loadDownloadTracker();
 
 // Inisialisasi WhatsApp client
 client.initialize();

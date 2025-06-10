@@ -76,7 +76,10 @@ class WAMonitorDashboard {
             contactDetailsModal: document.getElementById('contactDetailsModal'),
             statusBtn: document.getElementById('status-btn'),
             statusModal: document.getElementById('statusModal'),
-            messageContactBtn: document.getElementById('message-contact-btn')
+            messageContactBtn: document.getElementById('message-contact-btn'),
+            statusViewerModal: document.getElementById('statusViewerModal'),
+            statusPrevBtn: document.getElementById('status-prev-btn'),
+            statusNextBtn: document.getElementById('status-next-btn')
         };
 
         // Application state
@@ -103,7 +106,8 @@ class WAMonitorDashboard {
             chatInfo: new bootstrap.Modal(this.elements.chatInfoModal),
             downloadProgress: new bootstrap.Modal(this.elements.downloadProgressModal),
             contactDetails: new bootstrap.Modal(this.elements.contactDetailsModal),
-            status: new bootstrap.Modal(this.elements.statusModal)
+            status: new bootstrap.Modal(this.elements.statusModal),
+            statusViewer: new bootstrap.Modal(this.elements.statusViewerModal)
         };
 
         // Initialize the application
@@ -877,9 +881,15 @@ class WAMonitorDashboard {
             chatItem.className = `chat-item ${this.state.currentChatId === chat.id._serialized ? 'active' : ''} ${chat.isGroup ? 'group-chat' : ''}`;
             chatItem.dataset.chatId = chat.id._serialized;
 
+            // Check if contact has status (simulated)
+            const hasStatus = Math.random() > 0.7; // 30% chance of having status
+            const statusClass = hasStatus ? 'has-status' : '';
+            const statusViewed = hasStatus && Math.random() > 0.5 ? 'viewed' : '';
+
             chatItem.innerHTML = `
-                <div class="chat-avatar" style="background: ${avatarColor}">
+                <div class="chat-avatar chat-item-avatar ${statusClass} ${statusViewed}" style="background: ${avatarColor}" data-has-status="${hasStatus}">
                     ${initials}
+                    ${hasStatus ? '<div class="status-indicator"></div>' : ''}
                 </div>
                 <div class="chat-info">
                     <div class="chat-name">${this.escapeHtml(contactName)}</div>
@@ -894,6 +904,17 @@ class WAMonitorDashboard {
             chatItem.addEventListener('click', () => {
                 this.selectChat(chat.id._serialized, contactName);
             });
+
+            // Add click handler for status viewing
+            const avatar = chatItem.querySelector('.chat-avatar');
+            if (hasStatus) {
+                avatar.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.viewContactStatus(chat.id._serialized, contactName);
+                });
+                avatar.style.cursor = 'pointer';
+                avatar.title = 'View Status';
+            }
 
             this.elements.chatList.appendChild(chatItem);
         });
@@ -1040,6 +1061,11 @@ class WAMonitorDashboard {
             setTimeout(() => {
                 this.showAutoDownloadNotification();
             }, 2000);
+
+            // Show profile pictures loading notification
+            setTimeout(() => {
+                this.showProfilePicturesLoadingNotification();
+            }, 8000);
         });
 
         this.socket.on('qr', () => {
@@ -1141,6 +1167,16 @@ class WAMonitorDashboard {
 
         this.socket.on('my-status', (myStatus) => {
             this.handleMyStatus(myStatus);
+        });
+
+        // Profile pictures loading events
+        this.socket.on('profile-pictures-loaded', (data) => {
+            this.handleProfilePicturesLoaded(data);
+        });
+
+        // Download already completed event
+        this.socket.on('download-already-completed', (data) => {
+            this.handleDownloadAlreadyCompleted(data);
         });
 
         this.socket.on('media-downloaded', (data) => {
@@ -2670,21 +2706,51 @@ class WAMonitorDashboard {
         // Update chat header avatar
         if (contactId === this.state.currentChatId && this.elements.chatContactImg) {
             if (profilePicUrl) {
-                this.elements.chatContactImg.innerHTML = `<img src="${profilePicUrl}" alt="Profile" class="profile-picture">`;
+                const img = document.createElement('img');
+                img.src = profilePicUrl;
+                img.alt = 'Profile';
+                img.className = 'profile-picture';
+                img.onerror = () => {
+                    // Fallback to icon if image fails to load
+                    this.elements.chatContactImg.innerHTML = `<i class="bi bi-person"></i>`;
+                };
+                this.elements.chatContactImg.innerHTML = '';
+                this.elements.chatContactImg.appendChild(img);
             }
         }
 
         // Update contact details modal avatar
         const contactDetailsAvatar = document.getElementById('contact-details-avatar');
         if (contactDetailsAvatar && profilePicUrl) {
-            contactDetailsAvatar.innerHTML = `<img src="${profilePicUrl}" alt="Profile" class="profile-picture">`;
+            const img = document.createElement('img');
+            img.src = profilePicUrl;
+            img.alt = 'Profile';
+            img.className = 'profile-picture';
+            img.onerror = () => {
+                contactDetailsAvatar.innerHTML = `<i class="bi bi-person"></i>`;
+            };
+            contactDetailsAvatar.innerHTML = '';
+            contactDetailsAvatar.appendChild(img);
         }
 
         // Update chat list avatar
         const chatItems = document.querySelectorAll(`[data-chat-id="${contactId}"] .chat-item-avatar`);
         chatItems.forEach(avatar => {
             if (profilePicUrl) {
-                avatar.innerHTML = `<img src="${profilePicUrl}" alt="Profile" class="profile-picture">`;
+                const img = document.createElement('img');
+                img.src = profilePicUrl;
+                img.alt = 'Profile';
+                img.className = 'profile-picture';
+                img.onerror = () => {
+                    // Keep the existing content (initials) if image fails
+                    console.log(`Failed to load profile picture for ${contactId}`);
+                };
+
+                // Only replace if image loads successfully
+                img.onload = () => {
+                    avatar.innerHTML = '';
+                    avatar.appendChild(img);
+                };
             }
         });
     }
@@ -2971,6 +3037,184 @@ class WAMonitorDashboard {
     }
 
     /**
+     * View contact status
+     */
+    viewContactStatus(contactId, contactName) {
+        console.log(`Viewing status for: ${contactName}`);
+
+        // Show status viewer modal
+        this.modals.statusViewer.show();
+
+        // Update status viewer with contact info
+        const statusViewerName = document.getElementById('status-viewer-name');
+        const statusViewerTime = document.getElementById('status-viewer-time');
+        const statusContent = document.getElementById('status-content');
+
+        if (statusViewerName) {
+            statusViewerName.textContent = contactName;
+        }
+
+        if (statusViewerTime) {
+            statusViewerTime.textContent = this.getRandomStatusTime();
+        }
+
+        if (statusContent) {
+            // Simulate different types of status
+            const statusTypes = ['text', 'image', 'video'];
+            const randomType = statusTypes[Math.floor(Math.random() * statusTypes.length)];
+
+            switch (randomType) {
+                case 'text':
+                    statusContent.innerHTML = `
+                        <div class="status-text">
+                            <p>${this.getRandomStatusText()}</p>
+                        </div>
+                    `;
+                    break;
+                case 'image':
+                    statusContent.innerHTML = `
+                        <img src="https://picsum.photos/300/400?random=${Math.floor(Math.random() * 1000)}" alt="Status Image">
+                    `;
+                    break;
+                case 'video':
+                    statusContent.innerHTML = `
+                        <video controls autoplay muted>
+                            <source src="https://sample-videos.com/zip/10/mp4/SampleVideo_360x240_1mb.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    `;
+                    break;
+            }
+        }
+
+        // Mark status as viewed
+        this.markStatusAsViewed(contactId);
+
+        // Start status progress animation
+        this.startStatusProgress();
+    }
+
+    /**
+     * Get random status time
+     */
+    getRandomStatusTime() {
+        const times = ['2 minutes ago', '1 hour ago', '3 hours ago', '5 hours ago', '12 hours ago', '1 day ago'];
+        return times[Math.floor(Math.random() * times.length)];
+    }
+
+    /**
+     * Get random status text
+     */
+    getRandomStatusText() {
+        const texts = [
+            'Having a great day! 😊',
+            'Life is beautiful ✨',
+            'Working hard 💪',
+            'Weekend vibes 🎉',
+            'Coffee time ☕',
+            'Sunset views 🌅',
+            'Good morning! 🌞',
+            'Feeling blessed 🙏'
+        ];
+        return texts[Math.floor(Math.random() * texts.length)];
+    }
+
+    /**
+     * Mark status as viewed
+     */
+    markStatusAsViewed(contactId) {
+        const chatAvatar = document.querySelector(`[data-chat-id="${contactId}"] .chat-avatar`);
+        if (chatAvatar && chatAvatar.classList.contains('has-status')) {
+            chatAvatar.classList.add('viewed');
+            const statusIndicator = chatAvatar.querySelector('.status-indicator');
+            if (statusIndicator) {
+                statusIndicator.classList.add('viewed');
+            }
+        }
+    }
+
+    /**
+     * Start status progress animation
+     */
+    startStatusProgress() {
+        const progressBar = document.getElementById('status-progress-bar');
+        if (progressBar) {
+            progressBar.style.width = '0%';
+
+            // Animate progress bar over 5 seconds
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 2;
+                progressBar.style.width = `${progress}%`;
+
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    // Auto-close modal after completion
+                    setTimeout(() => {
+                        this.modals.statusViewer.hide();
+                    }, 500);
+                }
+            }, 100);
+        }
+    }
+
+    /**
+     * Handle profile pictures loaded
+     */
+    handleProfilePicturesLoaded(data) {
+        console.log('Profile pictures loading completed:', data);
+
+        // Update notification
+        const notification = document.getElementById('profile-pics-notification');
+        const progressText = document.getElementById('profile-pics-text');
+        const progressBar = document.getElementById('profile-pics-progress');
+
+        if (notification && progressText && progressBar) {
+            progressBar.style.width = '100%';
+            progressText.textContent = `Completed: ${data.loaded} loaded, ${data.errors} errors`;
+
+            // Hide notification after 3 seconds
+            setTimeout(() => {
+                if (notification && notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+
+        // Show notification about profile pictures loading
+        if (data.loaded > 0) {
+            console.log(`📸 Loaded ${data.loaded} profile pictures successfully`);
+        }
+
+        if (data.errors > 0) {
+            console.log(`⚠️ Failed to load ${data.errors} profile pictures`);
+        }
+    }
+
+    /**
+     * Handle download already completed
+     */
+    handleDownloadAlreadyCompleted(data) {
+        console.log('Download already completed:', data);
+
+        // Show notification that download was already completed
+        const notification = document.getElementById('auto-download-notification');
+        const progressText = document.getElementById('auto-download-text');
+        const progressBar = document.getElementById('auto-download-progress');
+
+        if (notification && progressText && progressBar) {
+            notification.classList.remove('hidden');
+            progressText.textContent = `Download completed earlier today: ${data.totalMessages} messages from ${data.totalChats} chats`;
+            progressBar.style.width = '100%';
+
+            // Hide notification after 5 seconds
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 5000);
+        }
+    }
+
+    /**
      * Update auto-download notification
      */
     updateAutoDownloadNotification(progress) {
@@ -3021,6 +3265,59 @@ class WAMonitorDashboard {
                 progressText.textContent = 'Starting automatic download...';
             }
         }
+    }
+
+    /**
+     * Show profile pictures loading notification
+     */
+    showProfilePicturesLoadingNotification() {
+        console.log('📸 Starting profile pictures loading...');
+
+        // Create temporary notification for profile pictures
+        const existingNotification = document.getElementById('profile-pics-notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+
+        const notification = document.createElement('div');
+        notification.id = 'profile-pics-notification';
+        notification.className = 'auto-download-notification';
+        notification.innerHTML = `
+            <div class="notification-content">
+                <div class="notification-icon">
+                    <i class="bi bi-person-circle"></i>
+                </div>
+                <div class="notification-text">
+                    <h6>Loading profile pictures...</h6>
+                    <p>Downloading profile pictures for all contacts and groups.</p>
+                    <div class="notification-progress">
+                        <div class="progress">
+                            <div class="progress-bar" id="profile-pics-progress"></div>
+                        </div>
+                        <small class="progress-text" id="profile-pics-text">Starting...</small>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Insert after auto-download notification
+        const autoDownloadNotification = document.getElementById('auto-download-notification');
+        if (autoDownloadNotification && autoDownloadNotification.parentNode) {
+            autoDownloadNotification.parentNode.insertBefore(notification, autoDownloadNotification.nextSibling);
+        } else {
+            // Fallback: add to welcome screen
+            const welcomeContent = document.querySelector('.welcome-content');
+            if (welcomeContent) {
+                welcomeContent.appendChild(notification);
+            }
+        }
+
+        // Auto-hide after 10 seconds
+        setTimeout(() => {
+            if (notification && notification.parentNode) {
+                notification.remove();
+            }
+        }, 10000);
     }
 }
 

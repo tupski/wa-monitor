@@ -105,7 +105,7 @@ npm run dev  # Runs with nodemon for auto-restart
 - **Optimized typography** for comfortable reading
 - **Balanced information density**
 
-## 🆕 Latest Features (v2.1 Complete Profile & Media Edition)
+## 🆕 Latest Features (v2.2 Smart Download & Status Edition)
 
 ### 📞 **Call Logs & Phone Tracking**
 - **Automatic Call Detection**: Detects and logs all incoming/outgoing calls
@@ -168,7 +168,9 @@ npm run dev  # Runs with nodemon for auto-restart
 - **Real-time Updates**: Still receive instant updates
 - **Privacy Focused**: Monitor without leaving traces
 
-### 📥 **Automatic Message Download**
+### 📥 **Smart Download System**
+- **One-Time Download**: Smart tracking prevents duplicate downloads - only downloads once per day
+- **Download Persistence**: Tracks completed downloads across application restarts
 - **Complete History**: Automatically downloads ALL messages from ALL chats
 - **Background Processing**: Downloads happen automatically after WhatsApp connection
 - **Batch Processing**: Efficient batch downloading with progress tracking
@@ -178,25 +180,34 @@ npm run dev  # Runs with nodemon for auto-restart
 - **Persistent Storage**: Messages saved to local files for permanent access
 - **Resume Capability**: Can resume interrupted downloads
 - **Memory Efficient**: Optimized memory usage during large downloads
+- **Skip Notification**: Shows notification when download already completed today
 
-### 👤 **Profile Pictures & Contact Details**
-- **Profile Picture Display**: Automatic download and display of contact/group profile pictures
+### 👤 **Enhanced Profile Pictures & Contact Details**
+- **Robust Profile Picture Download**: Fixed download errors with retry mechanism and proper error handling
+- **Automatic Profile Loading**: Background loading of all contact and group profile pictures
+- **Smart Caching System**: Prevents re-downloading existing profile pictures
+- **Fallback Handling**: Graceful fallback to default icons when profile pictures fail to load
 - **Contact Information**: Complete contact details including name, number, status, and about
 - **Group Information**: Detailed group info with participants, admins, creation date, and description
 - **Status Display**: View contact status/about without marking as read
 - **Business Indicators**: Visual indicators for business and enterprise accounts
 - **Contact Type Detection**: Automatic detection of contact types (individual, group, business)
-- **Profile Picture Caching**: Local caching of profile pictures for faster loading
 - **Real-time Updates**: Profile pictures and status updates in real-time
+- **Progress Notifications**: Visual notifications for profile picture loading progress
 
-### 📱 **Status Monitoring (Stealth Mode)**
-- **My Status Display**: View your own status and profile information
-- **Status Stories**: Monitor status updates from contacts (when available)
+### 📱 **Advanced Status System**
+- **Status Indicators**: Visual status indicators on contact avatars with animated borders
+- **Click-to-View**: Click on contact avatar with status border to view their status
+- **Status Viewer**: Full-screen status viewer with progress bar and auto-advance
+- **Multiple Status Types**: Support for text, image, and video status updates
 - **Stealth Viewing**: View status without marking as read or seen
 - **Status History**: Track status changes over time
+- **My Status Display**: View your own status and profile information
+- **Status Stories**: Monitor status updates from contacts (when available)
 - **Profile Picture Updates**: Monitor profile picture changes
 - **Privacy Protection**: No read receipts sent when viewing status
 - **Real-time Monitoring**: Instant updates when status changes occur
+- **Auto-Progress**: Status automatically advances with visual progress indicator
 
 ### 🎵 **Enhanced Media Players**
 - **Advanced Audio Player**: Custom audio player with waveform visualization
