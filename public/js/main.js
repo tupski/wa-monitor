@@ -129,6 +129,9 @@ class WAMonitorDashboard {
 
         // Setup service worker message listener
         this.setupServiceWorkerListener();
+
+        // Setup test notification button
+        this.setupTestNotificationButton();
     }
 
     /**
@@ -142,6 +145,11 @@ class WAMonitorDashboard {
                     if (permission === 'granted') {
                         console.log('Notification permission granted');
                         this.showNotificationStatus('Notifikasi diaktifkan! Anda akan menerima pemberitahuan untuk pesan baru.', 'success');
+
+                        // Show test notification
+                        setTimeout(() => {
+                            this.showTestNotification();
+                        }, 2000);
                     } else {
                         console.log('Notification permission denied');
                         this.showNotificationStatus('Notifikasi ditolak. Anda tidak akan menerima pemberitahuan pesan baru.', 'warning');
@@ -217,12 +225,16 @@ class WAMonitorDashboard {
      * Show browser notification for new message
      */
     showBrowserNotification(message, chatId) {
+        console.log('Attempting to show browser notification:', { message, chatId, permission: Notification.permission });
+
         if (Notification.permission !== 'granted') {
+            console.log('Notification permission not granted');
             return;
         }
 
         // Don't show notification if the chat is currently open
         if (this.state.currentChatId === chatId) {
+            console.log('Chat is currently open, skipping notification');
             return;
         }
 
@@ -234,7 +246,7 @@ class WAMonitorDashboard {
         let notificationBody = '';
         let notificationIcon = '/favicon.ico';
 
-        if (message.hasMedia) {
+        if (message && message.hasMedia) {
             // Media message
             const mediaType = message._data && message._data.mimetype ?
                 message._data.mimetype.split('/')[0] : 'media';
@@ -252,36 +264,79 @@ class WAMonitorDashboard {
                 default:
                     notificationBody = '📎 Document';
             }
-        } else if (message.body) {
+        } else if (message && message.body) {
             // Text message
             notificationBody = message.body.length > 50 ?
                 message.body.substring(0, 50) + '...' :
                 message.body;
         } else {
-            notificationBody = 'New message';
+            notificationBody = 'Pesan baru diterima';
         }
 
-        // Create and show notification
-        const notification = new Notification(notificationTitle, {
-            body: notificationBody,
-            icon: notificationIcon,
-            badge: notificationIcon,
-            tag: chatId, // This will replace previous notifications from same chat
-            requireInteraction: false,
-            silent: false
-        });
+        console.log('Creating notification:', { title: notificationTitle, body: notificationBody });
 
-        // Handle notification click
-        notification.onclick = () => {
-            window.focus();
-            this.selectChat(chatId);
-            notification.close();
-        };
+        try {
+            // Create and show notification
+            const notification = new Notification(notificationTitle, {
+                body: notificationBody,
+                icon: notificationIcon,
+                badge: notificationIcon,
+                tag: chatId, // This will replace previous notifications from same chat
+                requireInteraction: false,
+                silent: false
+            });
 
-        // Auto close after 5 seconds
-        setTimeout(() => {
-            notification.close();
-        }, 5000);
+            console.log('Notification created successfully');
+
+            // Handle notification click
+            notification.onclick = () => {
+                console.log('Notification clicked');
+                window.focus();
+                this.selectChat(chatId);
+                notification.close();
+            };
+
+            // Auto close after 5 seconds
+            setTimeout(() => {
+                notification.close();
+            }, 5000);
+        } catch (error) {
+            console.error('Error creating notification:', error);
+        }
+    }
+
+    /**
+     * Show test notification to verify notifications are working
+     */
+    showTestNotification() {
+        if (Notification.permission !== 'granted') {
+            return;
+        }
+
+        try {
+            const notification = new Notification('WhatsApp Monitor Test', {
+                body: 'Notifikasi berfungsi dengan baik! 🎉',
+                icon: '/favicon.ico',
+                badge: '/favicon.ico',
+                tag: 'test-notification',
+                requireInteraction: false,
+                silent: false
+            });
+
+            notification.onclick = () => {
+                console.log('Test notification clicked');
+                window.focus();
+                notification.close();
+            };
+
+            setTimeout(() => {
+                notification.close();
+            }, 5000);
+
+            console.log('Test notification shown');
+        } catch (error) {
+            console.error('Error showing test notification:', error);
+        }
     }
 
     /**
@@ -397,6 +452,30 @@ class WAMonitorDashboard {
                     syncStatus.remove();
                 }
             }, 3000);
+        }
+    }
+
+    /**
+     * Setup test notification button
+     */
+    setupTestNotificationButton() {
+        const testBtn = document.getElementById('test-notification-btn');
+        if (testBtn) {
+            testBtn.addEventListener('click', () => {
+                console.log('Test notification button clicked');
+
+                if (Notification.permission === 'granted') {
+                    this.showTestNotification();
+                } else if (Notification.permission === 'default') {
+                    this.requestNotificationPermission().then(() => {
+                        if (Notification.permission === 'granted') {
+                            this.showTestNotification();
+                        }
+                    });
+                } else {
+                    alert('Notifikasi diblokir. Silakan aktifkan notifikasi di pengaturan browser.');
+                }
+            });
         }
     }
 
@@ -1360,6 +1439,11 @@ class WAMonitorDashboard {
             console.log(`Received ${chats ? chats.length : 0} chats`);
             this.state.allChats = chats || [];
             this.renderChatList(this.state.allChats);
+
+            // Load cached profile pictures after chat list is rendered
+            setTimeout(() => {
+                this.loadAllProfilePicturesFromStorage();
+            }, 1000);
         });
 
         this.socket.on('contacts', (contacts) => {
@@ -1380,10 +1464,15 @@ class WAMonitorDashboard {
         });
 
         this.socket.on('new-message', (data) => {
-            console.log('New message received');
+            console.log('New message received:', data);
 
             // Show browser notification for new message
-            this.showBrowserNotification(data.message, data.chatId);
+            if (data && data.message && data.chatId) {
+                console.log('Calling showBrowserNotification with:', data.message, data.chatId);
+                this.showBrowserNotification(data.message, data.chatId);
+            } else {
+                console.log('Invalid data for notification:', data);
+            }
 
             // If message is for current chat, refresh messages
             if (this.state.currentChatId === data.chatId) {
@@ -3074,6 +3163,11 @@ class WAMonitorDashboard {
     handleProfilePicture(data) {
         const { contactId, profilePicUrl } = data;
 
+        // Save to local storage
+        if (profilePicUrl) {
+            this.saveProfilePictureToStorage(contactId, profilePicUrl);
+        }
+
         // Update chat header avatar
         if (contactId === this.state.currentChatId && this.elements.chatContactImg) {
             if (profilePicUrl) {
@@ -3123,6 +3217,114 @@ class WAMonitorDashboard {
                     avatar.appendChild(img);
                 };
             }
+        });
+    }
+
+    /**
+     * Save profile picture URL to local storage
+     */
+    saveProfilePictureToStorage(contactId, profilePicUrl) {
+        try {
+            let profilePictures = JSON.parse(localStorage.getItem('wa_profile_pictures') || '{}');
+            profilePictures[contactId] = {
+                url: profilePicUrl,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('wa_profile_pictures', JSON.stringify(profilePictures));
+            console.log(`Profile picture saved to storage for ${contactId}`);
+        } catch (error) {
+            console.error('Error saving profile picture to storage:', error);
+        }
+    }
+
+    /**
+     * Load profile picture from local storage
+     */
+    loadProfilePictureFromStorage(contactId) {
+        try {
+            const profilePictures = JSON.parse(localStorage.getItem('wa_profile_pictures') || '{}');
+            const profileData = profilePictures[contactId];
+
+            if (profileData) {
+                // Check if profile picture is not too old (7 days)
+                const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+                if (profileData.timestamp > sevenDaysAgo) {
+                    return profileData.url;
+                } else {
+                    // Remove old profile picture
+                    delete profilePictures[contactId];
+                    localStorage.setItem('wa_profile_pictures', JSON.stringify(profilePictures));
+                }
+            }
+            return null;
+        } catch (error) {
+            console.error('Error loading profile picture from storage:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Load all profile pictures from storage on app start
+     */
+    loadAllProfilePicturesFromStorage() {
+        try {
+            const profilePictures = JSON.parse(localStorage.getItem('wa_profile_pictures') || '{}');
+            let loadedCount = 0;
+
+            Object.keys(profilePictures).forEach(contactId => {
+                const profileData = profilePictures[contactId];
+
+                // Check if not too old (7 days)
+                const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+                if (profileData.timestamp > sevenDaysAgo) {
+                    // Apply profile picture to UI
+                    this.applyProfilePictureToUI(contactId, profileData.url);
+                    loadedCount++;
+                }
+            });
+
+            if (loadedCount > 0) {
+                console.log(`Loaded ${loadedCount} profile pictures from storage`);
+                this.showNotificationStatus(`${loadedCount} foto profil dimuat dari cache`, 'info');
+            }
+        } catch (error) {
+            console.error('Error loading profile pictures from storage:', error);
+        }
+    }
+
+    /**
+     * Apply profile picture to UI elements
+     */
+    applyProfilePictureToUI(contactId, profilePicUrl) {
+        // Update chat header avatar if this is current chat
+        if (contactId === this.state.currentChatId && this.elements.chatContactImg) {
+            const img = document.createElement('img');
+            img.src = profilePicUrl;
+            img.alt = 'Profile';
+            img.className = 'profile-picture';
+            img.onerror = () => {
+                this.elements.chatContactImg.innerHTML = `<i class="bi bi-person"></i>`;
+            };
+            img.onload = () => {
+                this.elements.chatContactImg.innerHTML = '';
+                this.elements.chatContactImg.appendChild(img);
+            };
+        }
+
+        // Update chat list avatars
+        const chatItems = document.querySelectorAll(`[data-chat-id="${contactId}"] .chat-item-avatar`);
+        chatItems.forEach(avatar => {
+            const img = document.createElement('img');
+            img.src = profilePicUrl;
+            img.alt = 'Profile';
+            img.className = 'profile-picture';
+            img.onerror = () => {
+                console.log(`Failed to load cached profile picture for ${contactId}`);
+            };
+            img.onload = () => {
+                avatar.innerHTML = '';
+                avatar.appendChild(img);
+            };
         });
     }
 

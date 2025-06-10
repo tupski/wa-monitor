@@ -110,10 +110,25 @@
 - Mobile-optimized sync indicators
 - Better performance pada perangkat mobile
 
+## 📸 Foto Profil di Local Storage
+
+### Fitur:
+- Foto profil disimpan di local storage browser
+- Otomatis dimuat saat refresh tanpa perlu download ulang
+- Cache foto profil selama 7 hari
+- Fallback ke server jika cache expired
+
+### Cara Kerja:
+1. Saat foto profil didownload dari server, disimpan ke local storage
+2. Saat aplikasi dimuat, foto profil dimuat dari cache terlebih dahulu
+3. Cache otomatis dibersihkan jika lebih dari 7 hari
+4. Jika cache tidak ada, akan request ke server
+
 ## 🚀 Cara Menggunakan
 
-1. **Notification Permission**: 
+1. **Notification Permission**:
    - Klik "Allow" saat diminta izin notifikasi
+   - Klik tombol "Test Notifikasi" di welcome screen untuk test
    - Notifikasi akan muncul untuk pesan baru
 
 2. **Background Sync**:
@@ -127,6 +142,10 @@
 4. **Pesan Terhapus**:
    - Otomatis tersimpan dan ditampilkan
    - Terlihat dengan styling khusus
+
+5. **Foto Profil**:
+   - Otomatis dimuat dari cache saat refresh
+   - Tidak perlu download ulang
 
 ## ⚡ Performance
 
