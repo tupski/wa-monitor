@@ -132,6 +132,9 @@ class WAMonitorDashboard {
 
         // Setup test notification button
         this.setupTestNotificationButton();
+
+        // Check for URL parameters (e.g., from notification click)
+        this.handleURLParameters();
     }
 
     /**
@@ -297,11 +300,26 @@ class WAMonitorDashboard {
 
             console.log('Notification created successfully');
 
-            // Handle notification click
+            // Handle notification click - navigate to specific message
             notification.onclick = () => {
-                console.log('Notification clicked');
+                console.log('Notification clicked for chat:', chatId);
+
+                // Focus window first
                 window.focus();
-                this.selectChat(chatId);
+
+                // If we're not on dashboard, navigate there first
+                if (!window.location.pathname.includes('dashboard.html')) {
+                    window.location.href = `/dashboard.html?chat=${encodeURIComponent(chatId)}`;
+                } else {
+                    // Select the chat and scroll to latest message
+                    this.selectChat(chatId);
+
+                    // Wait a bit for messages to load, then scroll to bottom
+                    setTimeout(() => {
+                        this.scrollToLatestMessage();
+                    }, 500);
+                }
+
                 notification.close();
             };
 
@@ -345,6 +363,46 @@ class WAMonitorDashboard {
             console.log('Test notification shown');
         } catch (error) {
             console.error('Error showing test notification:', error);
+        }
+    }
+
+    /**
+     * Handle URL parameters (e.g., from notification clicks)
+     */
+    handleURLParameters() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const chatId = urlParams.get('chat');
+
+        if (chatId) {
+            console.log('Opening chat from URL parameter:', chatId);
+
+            // Wait for socket to be ready, then select the chat
+            if (this.socket && this.socket.connected) {
+                setTimeout(() => {
+                    this.selectChat(decodeURIComponent(chatId));
+                }, 1000);
+            } else {
+                // Wait for socket connection
+                this.socket.on('connect', () => {
+                    setTimeout(() => {
+                        this.selectChat(decodeURIComponent(chatId));
+                    }, 1000);
+                });
+            }
+
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
+
+    /**
+     * Scroll to the latest message in the chat
+     */
+    scrollToLatestMessage() {
+        const messagesContainer = document.getElementById('messages-container');
+        if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            console.log('Scrolled to latest message');
         }
     }
 
@@ -637,10 +695,11 @@ class WAMonitorDashboard {
             });
         }
 
-        // Status button
+        // Status button - navigate to status page
         if (this.elements.statusBtn) {
             this.elements.statusBtn.addEventListener('click', () => {
-                this.showStatus();
+                console.log('Status button clicked, navigating to status page');
+                window.location.href = '/status.html';
             });
         }
 

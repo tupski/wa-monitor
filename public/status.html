@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>WA Monitor Pro - Status</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-toolkit@8.0.0/extras/css/joypixels.min.css">
+</head>
+<body>
+    <!-- Mobile Header -->
+    <div class="mobile-header d-md-none">
+        <div class="d-flex justify-content-between align-items-center">
+            <button class="mobile-back-btn" id="mobile-back-btn">
+                <i class="bi bi-arrow-left"></i>
+            </button>
+            <div class="mobile-brand">
+                <i class="bi bi-circle-fill me-2"></i>
+                <span>Status</span>
+            </div>
+            <button class="mobile-menu-btn" id="mobile-menu-btn">
+                <i class="bi bi-three-dots-vertical"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="status-page-container">
+        <!-- Header -->
+        <div class="status-page-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <button class="back-btn d-none d-md-block" id="back-btn">
+                        <i class="bi bi-arrow-left"></i>
+                    </button>
+                    <h1 class="status-page-title">
+                        <i class="bi bi-circle-fill me-2"></i>
+                        Status
+                    </h1>
+                </div>
+                <div class="status-actions">
+                    <button class="action-btn" id="refresh-status-btn" title="Refresh Status">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Content -->
+        <div class="status-page-content">
+            <!-- My Status Section -->
+            <div class="status-section">
+                <div class="section-title">
+                    <i class="bi bi-person-circle"></i>
+                    Status Saya
+                </div>
+                <div class="my-status" id="my-status">
+                    <div class="my-status-avatar" id="my-status-avatar">
+                        <i class="bi bi-person"></i>
+                    </div>
+                    <div class="my-status-info">
+                        <div class="my-status-name" id="my-status-name">Status Saya</div>
+                        <div class="my-status-text" id="my-status-text">Ketuk untuk menambah pembaruan status</div>
+                    </div>
+                    <div class="my-status-actions">
+                        <button class="btn btn-sm btn-outline-primary" id="add-status-btn">
+                            <i class="bi bi-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Updates Section -->
+            <div class="status-section" id="recent-status-section">
+                <div class="section-title">
+                    <i class="bi bi-clock"></i>
+                    Pembaruan Terbaru
+                </div>
+                <div class="status-stories" id="recent-status-stories">
+                    <!-- Recent status stories will be loaded here -->
+                    <div class="loading-status">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <span class="ms-2">Memuat status...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Viewed Updates Section -->
+            <div class="status-section" id="viewed-status-section" style="display: none;">
+                <div class="section-title">
+                    <i class="bi bi-eye"></i>
+                    Pembaruan yang Dilihat
+                </div>
+                <div class="status-stories" id="viewed-status-stories">
+                    <!-- Viewed status stories will be loaded here -->
+                </div>
+            </div>
+
+            <!-- No Status Message -->
+            <div class="no-status" id="no-status" style="display: none;">
+                <div class="no-status-icon">
+                    <i class="bi bi-circle"></i>
+                </div>
+                <h5>Tidak Ada Status</h5>
+                <p>Belum ada pembaruan status dari kontak Anda.</p>
+                <button class="btn btn-primary" id="refresh-status-btn-2">
+                    <i class="bi bi-arrow-clockwise me-2"></i>
+                    Refresh Status
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Viewer Modal -->
+    <div class="modal fade" id="statusViewerModal" tabindex="-1" aria-labelledby="statusViewerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered status-viewer-modal">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <div class="status-header w-100">
+                        <div class="status-header-avatar" id="status-viewer-avatar">
+                            <i class="bi bi-person"></i>
+                        </div>
+                        <div class="status-header-info">
+                            <div class="status-header-name" id="status-viewer-name">Contact Name</div>
+                            <div class="status-header-time" id="status-viewer-time">2 hours ago</div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="status-content" id="status-content">
+                        <!-- Status content will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <div class="status-progress">
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Status Page JavaScript
+        class StatusPage {
+            constructor() {
+                this.socket = io();
+                this.statusViewer = null;
+                this.currentStatusIndex = 0;
+                this.statusList = [];
+                
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.setupSocketListeners();
+                this.loadStatus();
+                
+                console.log('Status page initialized');
+            }
+
+            setupEventListeners() {
+                // Back button
+                const backBtn = document.getElementById('back-btn');
+                const mobileBackBtn = document.getElementById('mobile-back-btn');
+                
+                if (backBtn) {
+                    backBtn.addEventListener('click', () => {
+                        window.location.href = '/dashboard.html';
+                    });
+                }
+                
+                if (mobileBackBtn) {
+                    mobileBackBtn.addEventListener('click', () => {
+                        window.location.href = '/dashboard.html';
+                    });
+                }
+
+                // Refresh buttons
+                const refreshBtn = document.getElementById('refresh-status-btn');
+                const refreshBtn2 = document.getElementById('refresh-status-btn-2');
+                
+                if (refreshBtn) {
+                    refreshBtn.addEventListener('click', () => {
+                        this.loadStatus();
+                    });
+                }
+                
+                if (refreshBtn2) {
+                    refreshBtn2.addEventListener('click', () => {
+                        this.loadStatus();
+                    });
+                }
+
+                // Add status button
+                const addStatusBtn = document.getElementById('add-status-btn');
+                if (addStatusBtn) {
+                    addStatusBtn.addEventListener('click', () => {
+                        alert('Fitur menambah status akan segera tersedia!');
+                    });
+                }
+
+                // Initialize status viewer modal
+                const statusViewerModal = document.getElementById('statusViewerModal');
+                if (statusViewerModal) {
+                    this.statusViewer = new bootstrap.Modal(statusViewerModal);
+                }
+            }
+
+            setupSocketListeners() {
+                this.socket.on('connect', () => {
+                    console.log('Connected to server');
+                });
+
+                this.socket.on('my-status', (data) => {
+                    this.updateMyStatus(data);
+                });
+
+                this.socket.on('status-stories', (data) => {
+                    this.updateStatusStories(data);
+                });
+
+                this.socket.on('disconnect', () => {
+                    console.log('Disconnected from server');
+                });
+            }
+
+            loadStatus() {
+                console.log('Loading status...');
+                
+                // Show loading
+                this.showLoading();
+                
+                // Request my status
+                this.socket.emit('get-my-status');
+                
+                // Request status stories
+                this.socket.emit('get-status-stories');
+            }
+
+            showLoading() {
+                const recentContainer = document.getElementById('recent-status-stories');
+                if (recentContainer) {
+                    recentContainer.innerHTML = `
+                        <div class="loading-status">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">Memuat status...</span>
+                        </div>
+                    `;
+                }
+            }
+
+            updateMyStatus(data) {
+                console.log('Updating my status:', data);
+                
+                const myStatusName = document.getElementById('my-status-name');
+                const myStatusText = document.getElementById('my-status-text');
+                const myStatusAvatar = document.getElementById('my-status-avatar');
+                
+                if (data && data.name) {
+                    if (myStatusName) myStatusName.textContent = data.name;
+                    if (myStatusText) myStatusText.textContent = data.status || 'Ketuk untuk menambah pembaruan status';
+                    
+                    if (myStatusAvatar && data.profilePic) {
+                        myStatusAvatar.innerHTML = `<img src="${data.profilePic}" alt="Profile">`;
+                    }
+                }
+            }
+
+            updateStatusStories(data) {
+                console.log('Updating status stories:', data);
+                
+                const recentContainer = document.getElementById('recent-status-stories');
+                const viewedContainer = document.getElementById('viewed-status-stories');
+                const recentSection = document.getElementById('recent-status-section');
+                const viewedSection = document.getElementById('viewed-status-section');
+                const noStatusDiv = document.getElementById('no-status');
+                
+                if (!data || (!data.recent && !data.viewed)) {
+                    // Show no status message
+                    if (recentContainer) recentContainer.innerHTML = '';
+                    if (viewedContainer) viewedContainer.innerHTML = '';
+                    if (recentSection) recentSection.style.display = 'none';
+                    if (viewedSection) viewedSection.style.display = 'none';
+                    if (noStatusDiv) noStatusDiv.style.display = 'block';
+                    return;
+                }
+                
+                // Hide no status message
+                if (noStatusDiv) noStatusDiv.style.display = 'none';
+                
+                // Update recent status
+                if (data.recent && data.recent.length > 0) {
+                    this.renderStatusStories(data.recent, recentContainer, false);
+                    if (recentSection) recentSection.style.display = 'block';
+                } else {
+                    if (recentContainer) {
+                        recentContainer.innerHTML = `
+                            <div class="no-status-small">
+                                <i class="bi bi-circle"></i>
+                                <p>Tidak ada pembaruan status terbaru</p>
+                            </div>
+                        `;
+                    }
+                }
+                
+                // Update viewed status
+                if (data.viewed && data.viewed.length > 0) {
+                    this.renderStatusStories(data.viewed, viewedContainer, true);
+                    if (viewedSection) viewedSection.style.display = 'block';
+                } else {
+                    if (viewedSection) viewedSection.style.display = 'none';
+                }
+            }
+
+            renderStatusStories(stories, container, isViewed) {
+                if (!container) return;
+                
+                let storiesHtml = '';
+                
+                stories.forEach(story => {
+                    const timeAgo = this.getTimeAgo(story.timestamp);
+                    const profilePic = story.profilePic ? 
+                        `<img src="${story.profilePic}" alt="${story.name}">` : 
+                        `<div class="status-avatar-placeholder">${story.name.charAt(0).toUpperCase()}</div>`;
+                    
+                    const viewedClass = isViewed ? 'viewed' : '';
+                    
+                    storiesHtml += `
+                        <div class="status-story-item" data-contact-id="${story.id}" onclick="statusPage.viewContactStatus('${story.id}', '${story.name}')">
+                            <div class="status-story-avatar has-status ${viewedClass}">
+                                ${profilePic}
+                                <div class="status-indicator ${viewedClass}"></div>
+                            </div>
+                            <div class="status-story-info">
+                                <div class="status-story-name">${story.name}</div>
+                                <div class="status-story-time">${timeAgo}</div>
+                                <div class="status-story-count">${story.statusCount || 1} update${(story.statusCount || 1) > 1 ? 's' : ''}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = storiesHtml;
+            }
+
+            viewContactStatus(contactId, contactName) {
+                console.log(`Viewing status for: ${contactName}`);
+                
+                // Show status viewer modal
+                if (this.statusViewer) {
+                    this.statusViewer.show();
+                }
+                
+                // Update status viewer with contact info
+                const statusViewerName = document.getElementById('status-viewer-name');
+                const statusViewerTime = document.getElementById('status-viewer-time');
+                const statusContent = document.getElementById('status-content');
+                
+                if (statusViewerName) {
+                    statusViewerName.textContent = contactName;
+                }
+                
+                if (statusViewerTime) {
+                    statusViewerTime.textContent = this.getRandomStatusTime();
+                }
+                
+                if (statusContent) {
+                    // Simulate different types of status
+                    const statusTypes = ['text', 'image', 'video'];
+                    const randomType = statusTypes[Math.floor(Math.random() * statusTypes.length)];
+                    
+                    switch (randomType) {
+                        case 'text':
+                            statusContent.innerHTML = `
+                                <div class="status-text">
+                                    <p>${this.getRandomStatusText()}</p>
+                                </div>
+                            `;
+                            break;
+                        case 'image':
+                            statusContent.innerHTML = `
+                                <img src="https://picsum.photos/300/400?random=${Math.floor(Math.random() * 1000)}" alt="Status Image">
+                            `;
+                            break;
+                        case 'video':
+                            statusContent.innerHTML = `
+                                <video controls autoplay muted>
+                                    <source src="https://sample-videos.com/zip/10/mp4/SampleVideo_360x240_1mb.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            `;
+                            break;
+                    }
+                }
+                
+                // Mark as viewed (without sending read receipt)
+                setTimeout(() => {
+                    this.markStatusAsViewed(contactId);
+                }, 2000);
+            }
+
+            markStatusAsViewed(contactId) {
+                // Mark visually as viewed without sending read receipt
+                const statusStoryItem = document.querySelector(`[data-contact-id="${contactId}"]`);
+                if (statusStoryItem) {
+                    const statusAvatar = statusStoryItem.querySelector('.status-story-avatar');
+                    const statusIndicator = statusStoryItem.querySelector('.status-indicator');
+                    
+                    if (statusAvatar) {
+                        statusAvatar.classList.add('viewed');
+                    }
+                    if (statusIndicator) {
+                        statusIndicator.classList.add('viewed');
+                    }
+                }
+                
+                console.log(`Status marked as viewed for ${contactId} (no read receipt sent)`);
+            }
+
+            getTimeAgo(timestamp) {
+                if (!timestamp) return '2 jam yang lalu';
+                
+                const now = new Date();
+                const time = new Date(timestamp);
+                const diffInSeconds = Math.floor((now - time) / 1000);
+                
+                if (diffInSeconds < 60) return 'Baru saja';
+                if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} menit yang lalu`;
+                if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} jam yang lalu`;
+                return `${Math.floor(diffInSeconds / 86400)} hari yang lalu`;
+            }
+
+            getRandomStatusTime() {
+                const times = ['2 jam yang lalu', '5 menit yang lalu', '1 jam yang lalu', '30 menit yang lalu', '3 jam yang lalu'];
+                return times[Math.floor(Math.random() * times.length)];
+            }
+
+            getRandomStatusText() {
+                const texts = [
+                    'Selamat pagi! ☀️',
+                    'Sedang menikmati kopi ☕',
+                    'Hari yang indah! 🌸',
+                    'Bekerja dari rumah 🏠',
+                    'Liburan singkat 🏖️',
+                    'Waktu berkualitas dengan keluarga 👨‍👩‍👧‍👦',
+                    'Belajar hal baru 📚',
+                    'Olahraga pagi 🏃‍♂️'
+                ];
+                return texts[Math.floor(Math.random() * texts.length)];
+            }
+        }
+
+        // Initialize status page
+        const statusPage = new StatusPage();
+    </script>
+</body>
+</html>

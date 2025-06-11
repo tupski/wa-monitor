@@ -53,6 +53,7 @@
         <button onclick="requestPermission()">Minta Permission</button>
         <button onclick="showTestNotification()">Test Notifikasi</button>
         <button onclick="showWhatsAppNotification()">Test Notifikasi WhatsApp</button>
+        <button onclick="showNavigationNotification()">Test Notifikasi dengan Navigasi</button>
         
         <h3>Log:</h3>
         <div id="log" style="background: #f8f9fa; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 14px; max-height: 300px; overflow-y: auto;"></div>
@@ -190,6 +191,55 @@
             } catch (error) {
                 log(`ERROR creating WhatsApp notification: ${error.message}`);
                 updateStatus('❌ Error saat membuat WhatsApp notifikasi', 'error');
+            }
+        }
+
+        function showNavigationNotification() {
+            log('Attempting to show navigation notification...');
+
+            if (Notification.permission !== 'granted') {
+                log('ERROR: Permission not granted');
+                updateStatus('❌ Permission belum diberikan', 'error');
+                return;
+            }
+
+            try {
+                const testChatId = '6281234567890@c.us'; // Test chat ID
+                const notification = new Notification('Test Contact', {
+                    body: 'Klik untuk membuka chat ini',
+                    icon: '/favicon.ico',
+                    badge: '/favicon.ico',
+                    tag: 'navigation-test',
+                    requireInteraction: false,
+                    silent: false
+                });
+
+                log('✅ Navigation notification created successfully');
+                updateStatus('✅ Notifikasi navigasi berhasil ditampilkan', 'success');
+
+                notification.onclick = () => {
+                    log('Navigation notification clicked - redirecting to dashboard');
+
+                    // Focus window first
+                    window.focus();
+
+                    // Navigate to dashboard with chat parameter
+                    const dashboardUrl = `/dashboard.html?chat=${encodeURIComponent(testChatId)}`;
+                    log(`Navigating to: ${dashboardUrl}`);
+
+                    // Open in new tab for testing
+                    window.open(dashboardUrl, '_blank');
+
+                    notification.close();
+                };
+
+                setTimeout(() => {
+                    notification.close();
+                }, 10000); // Keep longer for testing
+
+            } catch (error) {
+                log(`ERROR creating navigation notification: ${error.message}`);
+                updateStatus('❌ Error saat membuat notifikasi navigasi', 'error');
             }
         }
 

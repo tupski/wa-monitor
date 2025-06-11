@@ -1,18 +1,45 @@
 # Fitur Baru WhatsApp Monitor Pro
 
-## 🔔 Notification Permission (Izin Notifikasi)
+## 🔔 Notification Permission (Izin Notifikasi) - UPDATED
 
 ### Fitur:
 - Aplikasi akan meminta izin notifikasi browser saat pertama kali dibuka
 - Notifikasi otomatis untuk pesan baru yang masuk
 - Notifikasi hanya muncul jika chat tidak sedang dibuka
-- Klik notifikasi untuk langsung membuka chat terkait
+- **BARU**: Klik notifikasi untuk langsung membuka chat terkait dengan navigasi otomatis
+- **BARU**: Notifikasi akan scroll otomatis ke pesan terbaru setelah membuka chat
 
 ### Cara Kerja:
 1. Saat aplikasi dimuat, akan muncul popup permintaan izin notifikasi
 2. Jika diizinkan, akan muncul notifikasi hijau konfirmasi
 3. Setiap pesan baru akan memunculkan notifikasi browser
 4. Notifikasi menampilkan nama pengirim dan preview pesan
+5. **BARU**: Klik notifikasi akan:
+   - Fokus ke window aplikasi
+   - Navigasi ke dashboard jika belum di dashboard
+   - Membuka chat yang sesuai
+   - Scroll ke pesan terbaru
+
+## 📱 Halaman Status Terpisah - NEW
+
+### Fitur:
+- **BARU**: Halaman status terpisah yang dapat diakses dari dashboard
+- **BARU**: Tampilan status yang mirip dengan WhatsApp asli
+- **BARU**: Dapat melihat status tanpa menandai sebagai sudah dibaca (stealth viewing)
+- **BARU**: Navigasi mudah antara dashboard dan halaman status
+
+### Cara Menggunakan:
+1. Dari dashboard, klik tombol status (ikon lingkaran) di sidebar
+2. Akan diarahkan ke halaman status terpisah (`/status.html`)
+3. Lihat status terbaru dan yang sudah dilihat
+4. Klik status untuk melihat detail tanpa mengirim read receipt
+5. Gunakan tombol back untuk kembali ke dashboard
+
+### Keunggulan:
+- **Stealth Viewing**: Melihat status tanpa memberitahu pengirim
+- **Responsive Design**: Tampil baik di desktop dan mobile
+- **Real-time Updates**: Status diperbarui secara real-time
+- **Privacy Protection**: Tidak mengirim read receipt saat melihat status
 
 ## 🔄 Background Sync (Sinkronisasi Background)
 
