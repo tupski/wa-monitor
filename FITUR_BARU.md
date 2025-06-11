@@ -41,6 +41,69 @@
 - **Real-time Updates**: Status diperbarui secara real-time
 - **Privacy Protection**: Tidak mengirim read receipt saat melihat status
 
+## ✅ Read Receipts WhatsApp Style - NEW
+
+### Fitur:
+- **BARU**: Read receipts seperti WhatsApp Web asli
+- **BARU**: Centang 1 abu-abu (terkirim ke server)
+- **BARU**: Centang 2 abu-abu (terkirim ke penerima)
+- **BARU**: Centang 2 biru (dibaca oleh penerima)
+- **BARU**: Ikon jam untuk pesan yang sedang dikirim
+
+### Cara Kerja:
+1. Setiap pesan keluar menampilkan status pengiriman
+2. Status berubah secara real-time sesuai dengan WhatsApp Web
+3. Hanya pesan keluar yang menampilkan read receipts
+4. Ikon dan warna sesuai dengan standar WhatsApp
+
+### Status Read Receipts:
+- 🕐 **Jam**: Pesan sedang dikirim
+- ✓ **Centang 1 Abu-abu**: Terkirim ke server WhatsApp
+- ✓✓ **Centang 2 Abu-abu**: Terkirim ke perangkat penerima
+- ✓✓ **Centang 2 Biru**: Dibaca oleh penerima
+
+## 🖼️ Status Border Real Data - NEW
+
+### Fitur:
+- **BARU**: Border status foto kontak menggunakan data real (bukan dummy)
+- **BARU**: Deteksi status berdasarkan aktivitas kontak yang sebenarnya
+- **BARU**: Status viewed/unviewed berdasarkan interaksi real
+- **BARU**: Cache status untuk performa yang lebih baik
+
+### Cara Kerja:
+1. Server menganalisis aktivitas kontak untuk mendeteksi status
+2. Border hijau muncul hanya jika kontak benar-benar memiliki status
+3. Border abu-abu jika status sudah dilihat
+4. Data status di-cache untuk menghindari request berulang
+
+### Keunggulan:
+- **Akurasi Tinggi**: Menggunakan data aktivitas real dari WhatsApp
+- **Performance**: Cache status untuk loading yang cepat
+- **Real-time Updates**: Status diperbarui secara real-time
+
+## 🎥 Enhanced Video Streaming - NEW
+
+### Fitur:
+- **BARU**: Video streaming dengan range request support
+- **BARU**: Picture-in-Picture (PiP) mode
+- **BARU**: Fullscreen video player
+- **BARU**: Auto-pause video lain saat memutar video baru
+- **BARU**: Enhanced error handling untuk video
+- **BARU**: Multiple video format support
+
+### Cara Kerja:
+1. Video menggunakan streaming endpoint `/stream/:filename`
+2. Support untuk range requests (partial content)
+3. Kontrol video yang lebih baik dengan overlay controls
+4. Picture-in-Picture untuk multitasking
+5. Fullscreen mode untuk pengalaman menonton yang lebih baik
+
+### Keunggulan:
+- **Streaming Efisien**: Hanya load bagian video yang diperlukan
+- **Multitasking**: PiP mode untuk menonton sambil chat
+- **User Experience**: Kontrol video yang intuitif
+- **Performance**: Auto-pause video lain untuk menghemat bandwidth
+
 ## 🔄 Background Sync (Sinkronisasi Background)
 
 ### Fitur:

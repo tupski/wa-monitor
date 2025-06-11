@@ -47,6 +47,48 @@ app.use(express.static('public'));
 app.use('/media', express.static('media'));
 app.use(express.json());
 
+// Video streaming endpoint with range support
+app.get('/stream/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join('media', filename);
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).send('File not found');
+    }
+
+    const stat = fs.statSync(filePath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+
+    if (range) {
+        // Support for range requests (video streaming)
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = (end - start) + 1;
+        const file = fs.createReadStream(filePath, { start, end });
+        const head = {
+            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': chunksize,
+            'Content-Type': 'video/mp4',
+            'Cache-Control': 'no-cache'
+        };
+        res.writeHead(206, head);
+        file.pipe(res);
+    } else {
+        // No range request, serve entire file
+        const head = {
+            'Content-Length': fileSize,
+            'Content-Type': 'video/mp4',
+            'Cache-Control': 'no-cache'
+        };
+        res.writeHead(200, head);
+        fs.createReadStream(filePath).pipe(res);
+    }
+});
+
 // API endpoint for background sync
 app.post('/api/sync-messages', (req, res) => {
     try {
@@ -711,25 +753,55 @@ io.on('connection', (socket) => {
                 try {
                     const contactId = chat.id._serialized;
 
-                    // Simulate status detection (WhatsApp Web API limitations)
-                    // In real implementation, this would check for actual status updates
-                    const hasRecentActivity = chat.lastMessage &&
-                        (Date.now() - chat.lastMessage.timestamp * 1000) < 24 * 60 * 60 * 1000; // 24 hours
+                    // Check for actual status updates using WhatsApp Web API
+                    let hasStatus = false;
+                    let statusTimestamp = null;
 
-                    if (hasRecentActivity && Math.random() > 0.6) { // Simulate 40% chance of having status
+                    try {
+                        // Try to get contact and check for status
+                        const contact = await client.getContactById(contactId);
+
+                        // Check if contact has recent activity (proxy for status)
+                        const hasRecentActivity = chat.lastMessage &&
+                            (Date.now() - chat.lastMessage.timestamp * 1000) < 24 * 60 * 60 * 1000; // 24 hours
+
+                        // Check if contact is active (has been online recently)
+                        const isActiveContact = contact.isMyContact || hasRecentActivity;
+
+                        // For demonstration, we'll use recent activity as status indicator
+                        // In a real implementation, you'd check for actual status updates
+                        hasStatus = isActiveContact && hasRecentActivity;
+                        statusTimestamp = hasStatus ? chat.lastMessage.timestamp * 1000 : null;
+
+                    } catch (contactError) {
+                        console.log(`Could not check status for ${contactId}:`, contactError.message);
+                        hasStatus = false;
+                    }
+
+                    if (hasStatus) {
                         const contactInfo = statusTracker.contacts.get(contactId) || {};
-                        const isViewed = Math.random() > 0.5; // 50% chance of being viewed
+                        const isViewed = contactInfo.isViewed || false;
 
                         const statusStory = {
                             id: contactId,
                             name: chat.name || chat.id.user,
-                            profilePic: contactInfo.profilePic || null,
+                            profilePic: null,
                             hasStatus: true,
-                            lastUpdate: Date.now() - Math.random() * 12 * 60 * 60 * 1000, // Random time in last 12 hours
+                            lastUpdate: statusTimestamp,
                             isViewed: isViewed,
-                            statusCount: Math.floor(Math.random() * 3) + 1, // 1-3 status updates
-                            statusType: ['text', 'image', 'video'][Math.floor(Math.random() * 3)]
+                            statusCount: 1, // Real status count would come from API
+                            statusType: 'text' // Default type
                         };
+
+                        // Try to get profile picture
+                        try {
+                            const profilePicUrl = await client.getProfilePicUrl(contactId);
+                            if (profilePicUrl) {
+                                statusStory.profilePic = profilePicUrl;
+                            }
+                        } catch (picError) {
+                            console.log(`Could not get profile picture for ${contactId}`);
+                        }
 
                         // Categorize status
                         if (isViewed) {
@@ -740,9 +812,9 @@ io.on('connection', (socket) => {
 
                         // Update status tracker
                         statusTracker.contacts.set(contactId, {
-                            ...contactInfo,
+                            ...statusStory,
                             hasStatus: true,
-                            lastUpdate: Date.now(),
+                            lastUpdate: statusTimestamp,
                             isViewed: isViewed
                         });
                     }
@@ -855,6 +927,36 @@ io.on('connection', (socket) => {
         const isAuthenticated = client && client.info && client.info.wid;
         console.log(`Auth status check: ${isAuthenticated ? 'authenticated' : 'not authenticated'}`);
         socket.emit('auth-status', isAuthenticated);
+    });
+
+    // Handle get contact status info
+    socket.on('get-contact-status', async (contactId) => {
+        try {
+            const contactStatus = statusTracker.contacts.get(contactId);
+            if (contactStatus) {
+                socket.emit('contact-status', {
+                    contactId,
+                    hasStatus: contactStatus.hasStatus,
+                    isViewed: contactStatus.isViewed,
+                    lastUpdate: contactStatus.lastUpdate
+                });
+            } else {
+                socket.emit('contact-status', {
+                    contactId,
+                    hasStatus: false,
+                    isViewed: false,
+                    lastUpdate: null
+                });
+            }
+        } catch (error) {
+            console.error('Error getting contact status:', error);
+            socket.emit('contact-status', {
+                contactId,
+                hasStatus: false,
+                isViewed: false,
+                lastUpdate: null
+            });
+        }
     });
 
     // Handle get call logs

@@ -99,6 +99,9 @@ class WAMonitorDashboard {
             searchQuery: ''
         };
 
+        // Initialize status cache
+        this.statusCache = {};
+
         // Initialize Bootstrap modals
         this.modals = {
             media: new bootstrap.Modal(this.elements.mediaModal),
@@ -403,6 +406,55 @@ class WAMonitorDashboard {
         if (messagesContainer) {
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
             console.log('Scrolled to latest message');
+        }
+    }
+
+    /**
+     * Get read receipt icon based on message status
+     */
+    getReadReceiptIcon(message) {
+        if (!message.fromMe) return '';
+
+        // Check message acknowledgment status
+        const ack = message.ack || message._data?.ack;
+
+        switch (ack) {
+            case 0: // Message sent (clock icon)
+                return '<i class="read-receipt clock" title="Sent">🕐</i>';
+            case 1: // Message delivered to server (single gray check)
+                return '<i class="read-receipt single-check" title="Delivered to server">✓</i>';
+            case 2: // Message delivered to recipient (double gray check)
+                return '<i class="read-receipt double-check" title="Delivered">✓✓</i>';
+            case 3: // Message read by recipient (double blue check)
+                return '<i class="read-receipt double-check-blue" title="Read">✓✓</i>';
+            default:
+                // Fallback: if no ack info, show single check
+                return '<i class="read-receipt single-check" title="Sent">✓</i>';
+        }
+    }
+
+    /**
+     * Update chat status display for a specific contact
+     */
+    updateChatStatusDisplay(contactId) {
+        const chatItem = document.querySelector(`[data-chat-id="${contactId}"]`);
+        if (!chatItem) return;
+
+        const statusInfo = this.statusCache[contactId];
+        if (!statusInfo) return;
+
+        const avatar = chatItem.querySelector('.chat-avatar');
+        if (!avatar) return;
+
+        // Remove existing status classes
+        avatar.classList.remove('has-status', 'viewed');
+
+        // Add status classes based on real data
+        if (statusInfo.hasStatus) {
+            avatar.classList.add('has-status');
+            if (statusInfo.isViewed) {
+                avatar.classList.add('viewed');
+            }
         }
     }
 
@@ -1310,10 +1362,22 @@ class WAMonitorDashboard {
             chatItem.className = `chat-item ${this.state.currentChatId === chat.id._serialized ? 'active' : ''} ${chat.isGroup ? 'group-chat' : ''}`;
             chatItem.dataset.chatId = chat.id._serialized;
 
-            // Check if contact has status (simulated)
-            const hasStatus = Math.random() > 0.7; // 30% chance of having status
-            const statusClass = hasStatus ? 'has-status' : '';
-            const statusViewed = hasStatus && Math.random() > 0.5 ? 'viewed' : '';
+            // Check if contact has status (real data from server)
+            const contactId = chat.id._serialized;
+            let hasStatus = false;
+            let statusClass = '';
+            let statusViewed = '';
+
+            // Get status from cache or request from server
+            if (this.statusCache && this.statusCache[contactId]) {
+                const statusInfo = this.statusCache[contactId];
+                hasStatus = statusInfo.hasStatus;
+                statusClass = hasStatus ? 'has-status' : '';
+                statusViewed = hasStatus && statusInfo.isViewed ? 'viewed' : '';
+            } else {
+                // Request status info from server
+                this.socket.emit('get-contact-status', contactId);
+            }
 
             chatItem.innerHTML = `
                 <div class="chat-avatar chat-item-avatar ${statusClass} ${statusViewed}" style="background: ${avatarColor}" data-has-status="${hasStatus}">
@@ -1471,6 +1535,19 @@ class WAMonitorDashboard {
         this.socket.on('disconnect', () => {
             console.log('Disconnected from server');
             this.showLoading('Connection lost. Reconnecting...');
+        });
+
+        // Handle contact status updates
+        this.socket.on('contact-status', (data) => {
+            console.log('Contact status received:', data);
+            this.statusCache[data.contactId] = {
+                hasStatus: data.hasStatus,
+                isViewed: data.isViewed,
+                lastUpdate: data.lastUpdate
+            };
+
+            // Update chat list display if needed
+            this.updateChatStatusDisplay(data.contactId);
         });
 
         this.socket.on('connect_error', (error) => {
@@ -1725,10 +1802,19 @@ class WAMonitorDashboard {
                 messageContent += `<div class="message-text">${formattedText}</div>`;
             }
 
+            // Add read receipts for sent messages
+            let readReceiptHtml = '';
+            if (isFromMe) {
+                readReceiptHtml = this.getReadReceiptIcon(message);
+            }
+
             messageDiv.innerHTML = `
                 <div class="message-content" data-message-id="${message.id ? message.id.id : 'unknown'}">
                     ${messageContent}
-                    <div class="message-time">${messageTime}</div>
+                    <div class="message-footer">
+                        <span class="message-time">${messageTime}</span>
+                        ${readReceiptHtml}
+                    </div>
                 </div>
             `;
 
@@ -1790,13 +1876,24 @@ class WAMonitorDashboard {
                                 playsinline
                                 webkit-playsinline
                                 controlsList="nodownload"
+                                crossorigin="anonymous"
+                                autoplay="false"
                             >
+                                <source src="${this.getStreamingUrl(message.mediaPath)}" type="${message.mimetype || 'video/mp4'}">
                                 <source src="${message.mediaPath}" type="${message.mimetype || 'video/mp4'}">
                                 Your browser does not support the video tag.
                             </video>
                             <div class="video-overlay" style="display: none;">
                                 <button class="video-play-btn">
                                     <i class="bi bi-play-fill"></i>
+                                </button>
+                            </div>
+                            <div class="video-controls-overlay">
+                                <button class="video-fullscreen-btn" title="Fullscreen">
+                                    <i class="bi bi-fullscreen"></i>
+                                </button>
+                                <button class="video-pip-btn" title="Picture in Picture" style="display: none;">
+                                    <i class="bi bi-pip"></i>
                                 </button>
                             </div>
                             <div class="media-info">
@@ -2278,6 +2375,50 @@ class WAMonitorDashboard {
             video.addEventListener('loadeddata', () => {
                 console.log('Video loaded successfully:', videoId);
             });
+
+            // Enhanced video controls
+            const fullscreenBtn = player.querySelector('.video-fullscreen-btn');
+            if (fullscreenBtn) {
+                fullscreenBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (video.requestFullscreen) {
+                        video.requestFullscreen();
+                    } else if (video.webkitRequestFullscreen) {
+                        video.webkitRequestFullscreen();
+                    } else if (video.mozRequestFullScreen) {
+                        video.mozRequestFullScreen();
+                    } else if (video.msRequestFullscreen) {
+                        video.msRequestFullscreen();
+                    }
+                });
+            }
+
+            // Picture-in-Picture button
+            const pipBtn = player.querySelector('.video-pip-btn');
+            if (pipBtn && 'pictureInPictureEnabled' in document) {
+                pipBtn.style.display = 'block';
+                pipBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    try {
+                        if (video !== document.pictureInPictureElement) {
+                            await video.requestPictureInPicture();
+                        } else {
+                            await document.exitPictureInPicture();
+                        }
+                    } catch (error) {
+                        console.error('Error toggling Picture-in-Picture:', error);
+                    }
+                });
+            }
+
+            // Auto-pause other videos when this one starts playing
+            video.addEventListener('play', () => {
+                document.querySelectorAll('video').forEach(otherVideo => {
+                    if (otherVideo !== video && !otherVideo.paused) {
+                        otherVideo.pause();
+                    }
+                });
+            });
         });
     }
 
@@ -2420,6 +2561,19 @@ class WAMonitorDashboard {
     getFileSize(filePath) {
         // This is a placeholder - in real implementation, you'd get this from server
         return 'Unknown size';
+    }
+
+    /**
+     * Get streaming URL for video files
+     */
+    getStreamingUrl(mediaPath) {
+        if (!mediaPath) return '';
+
+        // Extract filename from media path
+        const filename = mediaPath.split('/').pop();
+
+        // Return streaming endpoint URL
+        return `/stream/${filename}`;
     }
 
     /**
