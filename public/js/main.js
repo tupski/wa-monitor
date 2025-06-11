@@ -102,6 +102,9 @@ class WAMonitorDashboard {
         // Initialize status cache
         this.statusCache = {};
 
+        // Client ready status
+        this.clientReady = false;
+
         // Initialize Bootstrap modals
         this.modals = {
             media: new bootstrap.Modal(this.elements.mediaModal),
@@ -135,6 +138,9 @@ class WAMonitorDashboard {
 
         // Setup test notification button
         this.setupTestNotificationButton();
+
+        // Setup status modal event listeners
+        this.setupStatusModalListeners();
 
         // Check for URL parameters (e.g., from notification click)
         this.handleURLParameters();
@@ -747,11 +753,11 @@ class WAMonitorDashboard {
             });
         }
 
-        // Status button - navigate to status page
+        // Status button - show status modal
         if (this.elements.statusBtn) {
             this.elements.statusBtn.addEventListener('click', () => {
-                console.log('Status button clicked, navigating to status page');
-                window.location.href = '/status.html';
+                console.log('Status button clicked, showing status modal');
+                this.showStatusModal();
             });
         }
 
@@ -1548,6 +1554,28 @@ class WAMonitorDashboard {
 
             // Update chat list display if needed
             this.updateChatStatusDisplay(data.contactId);
+        });
+
+        // Handle my status
+        this.socket.on('my-status', (data) => {
+            console.log('My status received:', data);
+            this.updateMyStatus(data);
+        });
+
+        // Handle status stories
+        this.socket.on('status-stories', (data) => {
+            console.log('Status stories received:', data);
+            this.updateStatusStories(data);
+        });
+
+        // Handle client ready status
+        this.socket.on('client-ready-status', (data) => {
+            console.log('Client ready status:', data);
+            this.clientReady = data.ready;
+
+            if (!this.clientReady) {
+                console.log('WhatsApp client not ready yet');
+            }
         });
 
         this.socket.on('connect_error', (error) => {
@@ -2574,6 +2602,361 @@ class WAMonitorDashboard {
 
         // Return streaming endpoint URL
         return `/stream/${filename}`;
+    }
+
+    /**
+     * Show status modal
+     */
+    showStatusModal() {
+        console.log('Showing status modal');
+
+        // Show modal
+        this.modals.status.show();
+
+        // Load status data
+        this.loadStatusData();
+    }
+
+    /**
+     * Load status data from server
+     */
+    loadStatusData() {
+        console.log('Loading status data...');
+
+        // Show loading in recent status
+        const recentContainer = document.getElementById('recent-status-stories');
+        if (recentContainer) {
+            if (!this.clientReady) {
+                recentContainer.innerHTML = `
+                    <div class="loading-status">
+                        <i class="bi bi-exclamation-triangle text-warning"></i>
+                        <span class="ms-2">WhatsApp belum terhubung. Silakan scan QR code terlebih dahulu.</span>
+                    </div>
+                `;
+            } else {
+                recentContainer.innerHTML = `
+                    <div class="loading-status">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <span class="ms-2">Memuat status...</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Request my status
+        this.socket.emit('get-my-status');
+
+        // Request status stories
+        this.socket.emit('get-status-stories');
+    }
+
+    /**
+     * Update my status in modal
+     */
+    updateMyStatus(data) {
+        console.log('Updating my status:', data);
+
+        const myStatusName = document.getElementById('my-status-name');
+        const myStatusText = document.getElementById('my-status-text');
+        const myStatusAvatar = document.getElementById('my-status-avatar');
+
+        if (data) {
+            if (myStatusName) {
+                myStatusName.textContent = data.name || 'Pengguna WhatsApp';
+            }
+
+            if (myStatusText) {
+                if (data.error) {
+                    myStatusText.textContent = 'Error: ' + data.error;
+                    myStatusText.style.color = 'var(--danger-color)';
+                } else {
+                    myStatusText.textContent = data.status || 'Ketuk untuk menambah status';
+                    myStatusText.style.color = '';
+                }
+            }
+
+            if (myStatusAvatar) {
+                if (data.profilePic) {
+                    myStatusAvatar.innerHTML = `
+                        <img src="${data.profilePic}" alt="Profile">
+                        <div class="status-add-overlay">
+                            <i class="bi bi-plus"></i>
+                        </div>
+                    `;
+                } else {
+                    myStatusAvatar.innerHTML = `
+                        <i class="bi bi-person"></i>
+                        <div class="status-add-overlay">
+                            <i class="bi bi-plus"></i>
+                        </div>
+                    `;
+                }
+            }
+        }
+    }
+
+    /**
+     * Update status stories in modal
+     */
+    updateStatusStories(data) {
+        console.log('Updating status stories:', data);
+
+        const recentContainer = document.getElementById('recent-status-stories');
+        const viewedContainer = document.getElementById('viewed-status-stories');
+        const recentSection = document.getElementById('recent-updates-section');
+        const viewedSection = document.getElementById('viewed-updates-section');
+        const noStatusDiv = document.getElementById('no-status-message');
+
+        if (!data || (!data.recent && !data.viewed)) {
+            // Show no status message
+            if (recentContainer) recentContainer.innerHTML = '';
+            if (viewedContainer) viewedContainer.innerHTML = '';
+            if (recentSection) recentSection.style.display = 'none';
+            if (viewedSection) viewedSection.style.display = 'none';
+            if (noStatusDiv) noStatusDiv.style.display = 'block';
+            return;
+        }
+
+        // Hide no status message
+        if (noStatusDiv) noStatusDiv.style.display = 'none';
+
+        // Update recent status
+        if (data.recent && data.recent.length > 0) {
+            this.renderStatusStories(data.recent, recentContainer, false);
+            if (recentSection) recentSection.style.display = 'block';
+        } else {
+            if (recentContainer) {
+                recentContainer.innerHTML = `
+                    <div class="no-status-small">
+                        <i class="bi bi-circle"></i>
+                        <p>Tidak ada pembaruan status terbaru</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Update viewed status
+        if (data.viewed && data.viewed.length > 0) {
+            this.renderStatusStories(data.viewed, viewedContainer, true);
+            if (viewedSection) viewedSection.style.display = 'block';
+        } else {
+            if (viewedSection) viewedSection.style.display = 'none';
+        }
+    }
+
+    /**
+     * Render status stories in container
+     */
+    renderStatusStories(stories, container, isViewed) {
+        if (!container) return;
+
+        let storiesHtml = '';
+
+        stories.forEach(story => {
+            const timeAgo = this.getTimeAgo(story.timestamp);
+            const profilePic = story.profilePic ?
+                `<img src="${story.profilePic}" alt="${story.name}">` :
+                `<div class="status-avatar-placeholder">${story.name.charAt(0).toUpperCase()}</div>`;
+
+            const viewedClass = isViewed ? 'viewed' : '';
+
+            storiesHtml += `
+                <div class="status-story-item" data-contact-id="${story.id}" onclick="waMonitor.viewContactStatus('${story.id}', '${story.name}', false)">
+                    <div class="status-story-avatar has-status ${viewedClass}">
+                        ${profilePic}
+                    </div>
+                    <div class="status-story-info">
+                        <div class="status-story-name">${story.name}</div>
+                        <div class="status-story-time">${timeAgo}</div>
+                        <div class="status-story-count">${story.statusCount || 1} update${(story.statusCount || 1) > 1 ? 's' : ''}</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = storiesHtml;
+    }
+
+    /**
+     * View contact status without sending read receipt
+     */
+    viewContactStatus(contactId, contactName, sendReadReceipt = false) {
+        console.log(`Viewing status for: ${contactName} (sendReadReceipt: ${sendReadReceipt})`);
+
+        // Show status viewer modal
+        if (this.modals.statusViewer) {
+            this.modals.statusViewer.show();
+        }
+
+        // Update status viewer with contact info
+        const statusViewerName = document.getElementById('status-viewer-name');
+        const statusViewerTime = document.getElementById('status-viewer-time');
+        const statusContent = document.getElementById('status-content');
+
+        if (statusViewerName) {
+            statusViewerName.textContent = contactName;
+        }
+
+        if (statusViewerTime) {
+            statusViewerTime.textContent = this.getRandomStatusTime();
+        }
+
+        if (statusContent) {
+            // Simulate different types of status
+            const statusTypes = ['text', 'image', 'video'];
+            const randomType = statusTypes[Math.floor(Math.random() * statusTypes.length)];
+
+            switch (randomType) {
+                case 'text':
+                    statusContent.innerHTML = `
+                        <div class="status-text">
+                            <p>${this.getRandomStatusText()}</p>
+                        </div>
+                    `;
+                    break;
+                case 'image':
+                    statusContent.innerHTML = `
+                        <img src="https://picsum.photos/300/400?random=${Math.floor(Math.random() * 1000)}" alt="Status Image">
+                    `;
+                    break;
+                case 'video':
+                    statusContent.innerHTML = `
+                        <video controls autoplay muted>
+                            <source src="https://sample-videos.com/zip/10/mp4/SampleVideo_360x240_1mb.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    `;
+                    break;
+            }
+        }
+
+        // Only mark as viewed if sendReadReceipt is true
+        if (sendReadReceipt) {
+            setTimeout(() => {
+                this.markStatusAsViewed(contactId);
+            }, 2000);
+        } else {
+            console.log(`Status viewed without sending read receipt for ${contactId}`);
+        }
+    }
+
+    /**
+     * Mark status as viewed (with read receipt)
+     */
+    markStatusAsViewed(contactId) {
+        // Mark visually as viewed
+        const statusStoryItem = document.querySelector(`[data-contact-id="${contactId}"]`);
+        if (statusStoryItem) {
+            const statusAvatar = statusStoryItem.querySelector('.status-story-avatar');
+
+            if (statusAvatar) {
+                statusAvatar.classList.add('viewed');
+            }
+        }
+
+        // Send read receipt to server
+        this.socket.emit('mark-status-viewed', { contactId });
+
+        console.log(`Status marked as viewed with read receipt for ${contactId}`);
+    }
+
+    /**
+     * Get time ago string
+     */
+    getTimeAgo(timestamp) {
+        if (!timestamp) return '2 jam yang lalu';
+
+        const now = new Date();
+        const time = new Date(timestamp);
+        const diffInSeconds = Math.floor((now - time) / 1000);
+
+        if (diffInSeconds < 60) return 'Baru saja';
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} menit yang lalu`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} jam yang lalu`;
+        return `${Math.floor(diffInSeconds / 86400)} hari yang lalu`;
+    }
+
+    /**
+     * Get random status time for demo
+     */
+    getRandomStatusTime() {
+        const times = ['2 jam yang lalu', '5 menit yang lalu', '1 jam yang lalu', '30 menit yang lalu', '3 jam yang lalu'];
+        return times[Math.floor(Math.random() * times.length)];
+    }
+
+    /**
+     * Get random status text for demo
+     */
+    getRandomStatusText() {
+        const texts = [
+            'Selamat pagi! ☀️',
+            'Sedang menikmati kopi ☕',
+            'Hari yang indah! 🌸',
+            'Bekerja dari rumah 🏠',
+            'Liburan singkat 🏖️',
+            'Waktu berkualitas dengan keluarga 👨‍👩‍👧‍👦',
+            'Belajar hal baru 📚',
+            'Olahraga pagi 🏃‍♂️'
+        ];
+        return texts[Math.floor(Math.random() * texts.length)];
+    }
+
+    /**
+     * Setup status modal event listeners
+     */
+    setupStatusModalListeners() {
+        // Wait for DOM to be ready
+        setTimeout(() => {
+            // Refresh status button
+            const refreshBtn = document.getElementById('refresh-status-btn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => {
+                    console.log('Refresh status button clicked');
+                    this.loadStatusData();
+                });
+            }
+
+            // My status click
+            const myStatus = document.getElementById('my-status');
+            if (myStatus) {
+                myStatus.addEventListener('click', () => {
+                    console.log('My status clicked');
+                    alert('Fitur menambah status akan segera tersedia!');
+                });
+            }
+
+            console.log('Status modal event listeners setup complete');
+        }, 1000);
+    }
+
+    /**
+     * Setup status modal event listeners
+     */
+    setupStatusModalListeners() {
+        // Wait for DOM to be ready
+        setTimeout(() => {
+            // Refresh status button
+            const refreshBtn = document.getElementById('refresh-status-btn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => {
+                    console.log('Refresh status button clicked');
+                    this.loadStatusData();
+                });
+            }
+
+            // My status click
+            const myStatus = document.getElementById('my-status');
+            if (myStatus) {
+                myStatus.addEventListener('click', () => {
+                    console.log('My status clicked');
+                    alert('Fitur menambah status akan segera tersedia!');
+                });
+            }
+
+            console.log('Status modal event listeners setup complete');
+        }, 1000);
     }
 
     /**
@@ -4207,7 +4590,7 @@ class WAMonitorDashboard {
 
 // Initialize the dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new WAMonitorDashboard();
+    window.waMonitor = new WAMonitorDashboard();
 });
 
 

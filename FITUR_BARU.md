@@ -20,26 +20,30 @@
    - Membuka chat yang sesuai
    - Scroll ke pesan terbaru
 
-## 📱 Halaman Status Terpisah - NEW
+## 📱 Status Modal dalam Dashboard - NEW
 
 ### Fitur:
-- **BARU**: Halaman status terpisah yang dapat diakses dari dashboard
+- **BARU**: Modal status terintegrasi dalam dashboard (tidak perlu pindah halaman)
+- **BARU**: Layout vertikal seperti ponsel dengan dimensi mobile-friendly
 - **BARU**: Tampilan status yang mirip dengan WhatsApp asli
-- **BARU**: Dapat melihat status tanpa menandai sebagai sudah dibaca (stealth viewing)
-- **BARU**: Navigasi mudah antara dashboard dan halaman status
+- **BARU**: Stealth viewing - melihat status tanpa mengirim read receipt
+- **BARU**: Loading yang cepat tanpa refresh halaman
 
 ### Cara Menggunakan:
 1. Dari dashboard, klik tombol status (ikon lingkaran) di sidebar
-2. Akan diarahkan ke halaman status terpisah (`/status.html`)
-3. Lihat status terbaru dan yang sudah dilihat
-4. Klik status untuk melihat detail tanpa mengirim read receipt
-5. Gunakan tombol back untuk kembali ke dashboard
+2. Modal status akan muncul dengan layout vertikal seperti ponsel
+3. Lihat "Status Saya" di bagian atas
+4. Scroll untuk melihat "Pembaruan Terbaru" dari kontak
+5. Klik status kontak untuk melihat detail tanpa mengirim read receipt
+6. Status yang sudah dilihat akan muncul di bagian "Status yang Dilihat"
 
 ### Keunggulan:
+- **No Page Reload**: Modal terintegrasi, tidak perlu loading ulang
+- **Mobile-like Experience**: Layout vertikal seperti aplikasi WhatsApp mobile
 - **Stealth Viewing**: Melihat status tanpa memberitahu pengirim
-- **Responsive Design**: Tampil baik di desktop dan mobile
 - **Real-time Updates**: Status diperbarui secara real-time
 - **Privacy Protection**: Tidak mengirim read receipt saat melihat status
+- **Fast Loading**: Tidak ada perpindahan halaman
 
 ## ✅ Read Receipts WhatsApp Style - NEW
 

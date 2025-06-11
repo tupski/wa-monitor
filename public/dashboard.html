@@ -532,58 +532,76 @@
         </div>
     </div>
 
-    <!-- Status Modal -->
+    <!-- Status Modal - Mobile Style Layout -->
     <div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header border-0">
+        <div class="modal-dialog modal-dialog-centered status-modal-mobile">
+            <div class="modal-content status-modal-content">
+                <div class="modal-header status-modal-header">
                     <h5 class="modal-title" id="statusModalLabel">
                         <i class="bi bi-circle-fill me-2"></i>Status
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body status-modal-body">
                     <!-- My Status Section -->
-                    <div class="status-section">
+                    <div class="status-section my-status-section">
                         <div class="section-title">
                             <i class="bi bi-person-circle"></i>
-                            My Status
+                            Status Saya
                         </div>
                         <div class="my-status" id="my-status">
                             <div class="my-status-avatar" id="my-status-avatar">
                                 <i class="bi bi-person"></i>
+                                <div class="status-add-overlay">
+                                    <i class="bi bi-plus"></i>
+                                </div>
                             </div>
                             <div class="my-status-info">
-                                <div class="my-status-name" id="my-status-name">Your Name</div>
-                                <div class="my-status-about" id="my-status-about">No status</div>
+                                <div class="my-status-name" id="my-status-name">Status Saya</div>
+                                <div class="my-status-text" id="my-status-text">Ketuk untuk menambah status</div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Recent Updates Section -->
-                    <div class="status-section" id="recent-updates-section">
+                    <div class="status-section recent-updates-section" id="recent-updates-section">
                         <div class="section-title">
-                            <i class="bi bi-clock-history"></i>
-                            Recent Updates
+                            <i class="bi bi-clock"></i>
+                            Pembaruan Terbaru
                         </div>
-                        <div class="status-stories" id="recent-status-stories">
-                            <!-- Recent status stories will be added here -->
+                        <div class="status-stories-container" id="recent-status-stories">
+                            <div class="loading-status">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <span class="ms-2">Memuat status...</span>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Viewed Updates Section -->
-                    <div class="status-section" id="viewed-updates-section" style="display: none;">
+                    <div class="status-section viewed-updates-section" id="viewed-updates-section" style="display: none;">
                         <div class="section-title">
-                            <i class="bi bi-check-circle"></i>
-                            Viewed Updates
+                            <i class="bi bi-eye"></i>
+                            Status yang Dilihat
                         </div>
-                        <div class="status-stories" id="viewed-status-stories">
+                        <div class="status-stories-container" id="viewed-status-stories">
                             <!-- Viewed status stories will be added here -->
                         </div>
                     </div>
-                </div>
-                <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+
+                    <!-- No Status Message -->
+                    <div class="no-status-message" id="no-status-message" style="display: none;">
+                        <div class="no-status-icon">
+                            <i class="bi bi-circle"></i>
+                        </div>
+                        <h6>Tidak Ada Status</h6>
+                        <p>Belum ada pembaruan status dari kontak Anda.</p>
+                        <button class="btn btn-primary btn-sm" id="refresh-status-btn">
+                            <i class="bi bi-arrow-clockwise me-1"></i>
+                            Refresh
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

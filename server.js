@@ -465,6 +465,10 @@ io.on('connection', (socket) => {
     socket.emit('chats', chats);
     socket.emit('contacts', contacts);
 
+    // Send client ready status
+    const isClientReady = client && client.info && client.info.wid;
+    socket.emit('client-ready-status', { ready: isClientReady });
+
     // Handle permintaan pesan untuk chat tertentu
     socket.on('get-messages', async (chatId) => {
         console.log(`Menerima permintaan pesan untuk chat: ${chatId}`);
@@ -742,12 +746,45 @@ io.on('connection', (socket) => {
         try {
             console.log('Getting status stories...');
 
+            // Check if client is ready
+            if (!client || !client.info || !client.info.wid) {
+                console.log('Client not ready for status stories');
+                socket.emit('status-stories', {
+                    recent: [],
+                    viewed: [],
+                    totalCount: 0
+                });
+                return;
+            }
+
             // Get status stories from contacts
-            const allChats = await client.getChats();
+            let allChats = [];
+            try {
+                allChats = await client.getChats();
+            } catch (chatsError) {
+                console.error('Error getting chats:', chatsError.message);
+                socket.emit('status-stories', {
+                    recent: [],
+                    viewed: [],
+                    totalCount: 0
+                });
+                return;
+            }
 
             // Create categories for status
             const recentUpdates = [];
             const viewedUpdates = [];
+
+            // If no chats available, return empty status
+            if (!allChats || allChats.length === 0) {
+                console.log('No chats available for status stories');
+                socket.emit('status-stories', {
+                    recent: [],
+                    viewed: [],
+                    totalCount: 0
+                });
+                return;
+            }
 
             for (const chat of allChats) {
                 try {
@@ -828,8 +865,8 @@ io.on('connection', (socket) => {
             viewedUpdates.sort((a, b) => b.lastUpdate - a.lastUpdate);
 
             const statusResponse = {
-                recentUpdates,
-                viewedUpdates,
+                recent: recentUpdates,
+                viewed: viewedUpdates,
                 totalCount: recentUpdates.length + viewedUpdates.length
             };
 
@@ -861,22 +898,42 @@ io.on('connection', (socket) => {
         try {
             console.log('Getting my status...');
 
-            const myContact = await client.getContactById(client.info.wid._serialized);
+            // Check if client is ready
+            if (!client || !client.info || !client.info.wid) {
+                console.log('Client not ready for my status');
+                socket.emit('my-status', {
+                    name: 'Tidak Terhubung',
+                    status: 'Silakan scan QR code untuk terhubung',
+                    profilePic: null
+                });
+                return;
+            }
+
             let myStatus = {
-                name: client.info.pushname || myContact.name,
-                about: '',
+                name: client.info.pushname || client.info.wid.user || 'Pengguna WhatsApp',
+                status: 'Tersedia',
                 profilePic: null,
                 number: client.info.wid.user
             };
 
-            // Get my about
+            // Try to get contact info
             try {
-                const about = await myContact.getAbout();
-                if (about) {
-                    myStatus.about = about.about || '';
+                const myContact = await client.getContactById(client.info.wid._serialized);
+                if (myContact) {
+                    myStatus.name = myContact.name || myContact.pushname || myStatus.name;
+
+                    // Get my about
+                    try {
+                        const about = await myContact.getAbout();
+                        if (about && about.about) {
+                            myStatus.status = about.about;
+                        }
+                    } catch (aboutError) {
+                        console.log('Could not get my about:', aboutError.message);
+                    }
                 }
-            } catch (aboutError) {
-                console.log('Could not get my about:', aboutError.message);
+            } catch (contactError) {
+                console.log('Could not get my contact info:', contactError.message);
             }
 
             // Get my profile picture
@@ -890,11 +947,15 @@ io.on('connection', (socket) => {
             }
 
             socket.emit('my-status', myStatus);
-            console.log('My status sent');
+            console.log('My status sent:', myStatus.name);
 
         } catch (error) {
             console.error('Error getting my status:', error);
-            socket.emit('my-status', { error: error.message });
+            socket.emit('my-status', {
+                name: 'Error',
+                status: 'Tidak dapat memuat status',
+                error: error.message
+            });
         }
     });
 
@@ -932,6 +993,17 @@ io.on('connection', (socket) => {
     // Handle get contact status info
     socket.on('get-contact-status', async (contactId) => {
         try {
+            // Check if client is ready
+            if (!client || !client.info || !client.info.wid) {
+                socket.emit('contact-status', {
+                    contactId,
+                    hasStatus: false,
+                    isViewed: false,
+                    lastUpdate: null
+                });
+                return;
+            }
+
             const contactStatus = statusTracker.contacts.get(contactId);
             if (contactStatus) {
                 socket.emit('contact-status', {
